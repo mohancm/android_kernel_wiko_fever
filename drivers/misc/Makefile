@@ -34,6 +34,7 @@ obj-$(CONFIG_ISL29020)		+= isl29020.o
 obj-$(CONFIG_SENSORS_TSL2550)	+= tsl2550.o
 obj-$(CONFIG_DS1682)		+= ds1682.o
 obj-$(CONFIG_TI_DAC7512)	+= ti_dac7512.o
+obj-$(CONFIG_UID_STAT)		+= uid_stat.o
 obj-$(CONFIG_C2PORT)		+= c2port/
 obj-$(CONFIG_HMC6352)		+= hmc6352.o
 obj-y				+= eeprom/
@@ -56,3 +57,13 @@ obj-$(CONFIG_GENWQE)		+= genwqe/
 obj-$(CONFIG_ECHO)		+= echo/
 obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
+obj-$(CONFIG_UID_CPUTIME) += uid_cputime.o
+obj-$(CONFIG_MEDIATEK_SOLUTION)	+= mediatek/
+
+
+WIKO_UNIFY_DEF := $(strip $(subst ro.wiko.type =,,$(shell cat $(PWD)/build.ini |grep ^ro.wiko.type)))
+ifeq ($(strip $(WIKO_UNIFY_DEF)),unify)
+ccflags-y += -DCONFIG_WIKO_UNIFY
+obj-y += sensor_state.o 
+$(warning ---add marco CONFIG_WIKO_UNIFY---)
+endif

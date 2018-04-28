@@ -5140,6 +5140,13 @@ static struct usb_driver hub_driver = {
 
 int usb_hub_init(void)
 {
+#ifdef CONFIG_WIKO_UNIFY
+    extern int OTG_open;
+    if (OTG_open == 0)
+    {
+        return 0;
+    }
+#endif
 	if (usb_register(&hub_driver) < 0) {
 		printk(KERN_ERR "%s: can't register hub driver\n",
 			usbcore_name);

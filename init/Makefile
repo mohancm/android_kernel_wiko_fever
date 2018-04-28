@@ -2,12 +2,11 @@
 # Makefile for the linux kernel.
 #
 
+ccflags-y += -Idrivers/misc/mediatek/mtprof/
+
 obj-y                          := main.o version.o mounts.o
-ifneq ($(CONFIG_BLK_DEV_INITRD),y)
 obj-y                          += noinitramfs.o
-else
 obj-$(CONFIG_BLK_DEV_INITRD)   += initramfs.o
-endif
 obj-$(CONFIG_GENERIC_CALIBRATE_DELAY) += calibrate.o
 
 ifneq ($(CONFIG_ARCH_INIT_TASK),y)
@@ -21,6 +20,25 @@ mounts-$(CONFIG_BLK_DEV_MD)	+= do_mounts_md.o
 
 # dependencies on generated files need to be listed explicitly
 $(obj)/version.o: include/generated/compile.h
+
+
+WIKO_UNIFY_DEF := $(strip $(subst ro.wiko.type =,,$(shell cat $(PWD)/../../../../../../build.ini |grep ^ro.wiko.type)))
+ifeq ($(strip $(WIKO_UNIFY_DEF)),unify)
+$(warning -wlj--PWD= $(PWD)-------)
+$(warning -wlj--WIKO_UNIFY_DEF= $(WIKO_UNIFY_DEF))
+ccflags-y += -DCONFIG_WIKO_UNIFY
+$(warning -wlj---ccflags-y += -DCONFIG_WIKO_UNIFY---)
+endif
+
+WIKO_UNIFY_DEF := $(strip $(subst ro.wiko.type =,,$(shell cat $(PWD)/build.ini |grep ^ro.wiko.type)))
+ifeq ($(strip $(WIKO_UNIFY_DEF)),unify)
+$(warning -wlj--PWD= $(PWD)-------)
+$(warning -wlj--WIKO_UNIFY_DEF= $(WIKO_UNIFY_DEF))
+ccflags-y += -DCONFIG_WIKO_UNIFY
+$(warning -wlj---ccflags-y += -DCONFIG_WIKO_UNIFY---)
+endif
+
+
 
 # compile.h changes depending on hostname, generation number, etc,
 # so we regenerate it always.

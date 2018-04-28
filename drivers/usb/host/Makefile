@@ -23,7 +23,10 @@ endif
 ifneq ($(CONFIG_USB_XHCI_RCAR), )
 	xhci-plat-hcd-y		+= xhci-rcar.o
 endif
-
+ifneq ($(CONFIG_USB_XHCI_MTK), )
+	xhci-plat-hcd-y		+= xhci-mtk.o
+endif
+	xhci-hcd-$(CONFIG_SSUSB_MTK_XHCI)		+= xhci-ssusb-mtk.o xhci-plat.o
 obj-$(CONFIG_USB_WHCI_HCD)	+= whci/
 
 obj-$(CONFIG_PCI)		+= pci-quirks.o
@@ -79,3 +82,10 @@ obj-$(CONFIG_USB_HCD_SSB)	+= ssb-hcd.o
 obj-$(CONFIG_USB_FUSBH200_HCD)	+= fusbh200-hcd.o
 obj-$(CONFIG_USB_FOTG210_HCD)	+= fotg210-hcd.o
 obj-$(CONFIG_USB_MAX3421_HCD)	+= max3421-hcd.o
+
+WIKO_UNIFY_DEF := $(strip $(subst ro.wiko.type =,,$(shell cat $(PWD)/build.ini |grep ^ro.wiko.type)))
+ifeq ($(strip $(WIKO_UNIFY_DEF)),unify)
+ccflags-y += -DCONFIG_WIKO_UNIFY
+$(warning ---add marco CONFIG_WIKO_UNIFY---)
+endif
+
