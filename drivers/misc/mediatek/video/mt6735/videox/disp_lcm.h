@@ -41,10 +41,5 @@ int disp_lcm_is_inited(disp_lcm_handle *plcm);
 unsigned int disp_lcm_ATA(disp_lcm_handle *plcm);
 void *disp_lcm_switch_mode(disp_lcm_handle *plcm, int mode);
 int disp_lcm_set_cmd(disp_lcm_handle *plcm, void *handle, int *lcm_cmd, unsigned int cmd_num);
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-int disp_lcm_set_cabc(disp_lcm_handle *plcm, unsigned int mode);
-int disp_lcm_set_inverse(disp_lcm_handle *plcm, unsigned int mode);
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
+
 #endif

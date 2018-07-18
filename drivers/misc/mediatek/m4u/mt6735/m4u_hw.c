@@ -1886,7 +1886,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 			if (M4U_PORT_DISP_OVL0 == m4u_port
 #if defined(CONFIG_ARCH_MT6753)
-				|| M4U_PORT_DISP_OVL1 == m4u_port || M4U_PORT_DISP_OD_W == m4u_port
+				|| M4U_PORT_DISP_OVL1 == m4u_port
 #endif
 			) {
 				unsigned int valid_mva = 0;

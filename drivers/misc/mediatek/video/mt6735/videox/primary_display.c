@@ -138,12 +138,6 @@ unsigned int isDSIOff = 0;
 unsigned int gPresentFenceIndex = 0;
 unsigned int gTriggerDispMode = 0; /* 0: normal, 1: lcd only, 2: none of lcd and lcm */
 disp_ddp_path_config last_primary_config;
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-extern lenovo_disp_feature_info_t disp_feature_info[MTKFB_MAX_DISPLAY_COUNT];
-extern lenovo_disp_feature_state_t disp_feature_state[MTKFB_MAX_DISPLAY_COUNT];
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end end
 static atomic_t DvfsIsHPM = ATOMIC_INIT(1);
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 static struct switch_dev disp_switch_data;
@@ -913,11 +907,16 @@ int primary_display_switch_mmsys_clk(int mmsys_clk_old, int mmsys_clk_new)
 int primary_display_set_secondary_display(int add, DISP_SESSION_TYPE type)
 {
 	if (add) {
+		if (type == DISP_SESSION_MEMORY)
+			pgc->force_on_wdma_path = 1;
+
 #ifdef MTK_DISP_IDLE_LP
 		gSkipIdleDetect = 1;
 		_disp_primary_path_exit_idle(__func__, 0);
 #endif
 	} else {
+		if (type == DISP_SESSION_MEMORY)
+			pgc->force_on_wdma_path = 0;
 
 #ifdef MTK_DISP_IDLE_LP
 		gSkipIdleDetect = 0;
@@ -2053,13 +2052,8 @@ static void directlink_path_add_memory(WDMA_CONFIG_STRUCT *p_wdma)
 	cmdqRecHandle cmdq_handle = NULL;
 	cmdqRecHandle cmdq_wait_handle = NULL;
 	disp_ddp_path_config *pconfig = NULL;
-//lenovo-sw wuwl10 20150722 add to follow display corruption issure begin
-	cmdqBackupSlotHandle aslot = 0;//mtk
-	unsigned int value0;//mtk
 
 	/*create config thread*/
-	cmdqBackupAllocateSlot(&aslot, 1);//mtk
-//lenovo-sw wuwl10 20150722 add to follow display corruption issure end
 	ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
 	if (ret != 0) {
 		DISPCHECK("dl_to_dc capture:Fail to create cmdq handle\n");
@@ -2092,8 +2086,6 @@ static void directlink_path_add_memory(WDMA_CONFIG_STRUCT *p_wdma)
 	_cmdq_set_config_handle_dirty_mira(cmdq_handle);
 
 	dpmgr_wdma_path_force_power_on();
-//lenovo-sw wuwl10 20150722 add to follow display corruption issure
-	cmdqRecBackupRegisterToSlot(cmdq_handle, aslot, 0, disp_addr_convert(DISP_REG_OVL_FLOW_CTRL_DBG));//mtk
 	if (!secure_path_on)
 		cmdqRecDisablePrefetch(cmdq_handle);
 	_cmdq_flush_config_handle_mira(cmdq_handle, 0);
@@ -2103,11 +2095,6 @@ static void directlink_path_add_memory(WDMA_CONFIG_STRUCT *p_wdma)
 	cmdqRecWait(cmdq_wait_handle, CMDQ_EVENT_DISP_WDMA0_SOF);
 	cmdqRecFlush(cmdq_wait_handle);
 	DISPMSG("dl_to_dc capture:Flush wait wdma sof\n");
-//lenovo-sw wuwl10 20150722 add to follow display corruption issure begin
-	cmdqBackupReadSlot(aslot, 0, &value0); //mtk
-	DISPCHECK("OVL DBG while AAL config %x\n", value0);//mtk
-	cmdqBackupFreeSlot(aslot);//mtk
-//lenovo-sw wuwl10 20150722 add to follow display corruption issure end
 #if 0
 	cmdqRecReset(cmdq_handle);
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
@@ -4655,7 +4642,7 @@ static int _ovl_fence_release_callback(uint32_t userdata)
 	}
 
 	/* async callback, need to check if it is still decouple */
-	if (_is_decouple_mode(pgc->session_mode) && !_is_mirror_mode(pgc->session_mode)
+	if (_is_decouple_mode(pgc->session_mode)
 	    && (userdata == DISP_SESSION_DECOUPLE_MODE || userdata == 5)) {
 		static cmdqRecHandle cmdq_handle;
 		unsigned int rdma_pitch_sec, rdma_fmt;
@@ -5369,6 +5356,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps)
 #endif
 		eint_flag++;
 #endif
+
 #ifndef CONFIG_MTK_LEGACY
 		eint_flag++;
 #endif
@@ -5764,11 +5752,17 @@ int primary_display_suspend(void)
 	}
 
 	MMProfileLogEx(ddp_mmp_get_events()->primary_suspend, MMProfileFlagPulse, 0, 2);
-	DISPCHECK("[POWER]display cmdq trigger loop stop[begin]\n");
-	_cmdq_stop_trigger_loop();
-	DISPCHECK("[POWER]display cmdq trigger loop stop[end]\n");
-	MMProfileLogEx(ddp_mmp_get_events()->primary_suspend, MMProfileFlagPulse, 0, 3);
 
+	/*
+	   Keep CMDQ engine on by trgger loop in WFD extension case while suspend.
+	   If CMDQ engine enter suspend, the WDMA event would be cleared.
+	 */
+	if (!pgc->force_on_wdma_path) {
+		DISPCHECK("[POWER]display cmdq trigger loop stop[begin]\n");
+		_cmdq_stop_trigger_loop();
+		DISPCHECK("[POWER]display cmdq trigger loop stop[end]\n");
+		MMProfileLogEx(ddp_mmp_get_events()->primary_suspend, MMProfileFlagPulse, 0, 3);
+	}
 #ifdef CONFIG_LCM_SEND_CMD_IN_VIDEO
 	DISPCHECK("[POWER]lcm suspend[begin]\n");
 	disp_lcm_suspend(pgc->plcm);
@@ -5842,7 +5836,7 @@ int primary_display_suspend(void)
 	dpmgr_path_power_off(pgc->dpmgr_handle, CMDQ_DISABLE);
 	DISPCHECK("[POWER]dpmanager path power off[end]\n");
 
-	if (_is_decouple_mode(pgc->session_mode)) {
+	if (_is_decouple_mode(pgc->session_mode) && !pgc->force_on_wdma_path) {
 		dpmgr_path_power_off(pgc->ovl2mem_path_handle, CMDQ_DISABLE);
 	} else if (is_mmdvfs_supported() && mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_D1_PLUS) {
 		DISPMSG("set MMDVFS low\n");
@@ -6087,7 +6081,6 @@ int primary_display_resume(void)
 	DISPCHECK("[POWER]wakeup aal/od trigger process[end]\n");
 #endif
 	pgc->state = DISP_ALIVE;
-	pgc->force_on_wdma_path = 0;
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 	switch_set_state(&disp_switch_data, DISP_ALIVE);
 #endif
@@ -6107,95 +6100,6 @@ done:
 #endif
 	ddp_dump_analysis(DISP_MODULE_RDMA0);
 
-	return 0;
-}
-
-int primary_display_resume_ovl2mem(void)
-{
-	DISP_STATUS ret = DISP_STATUS_OK;
-
-	DISPFUNC();
-
-#ifdef CONFIG_MTK_CLKMGR
-	if (_is_decouple_mode(pgc->session_mode))
-		dpmgr_path_power_on(pgc->ovl2mem_path_handle, CMDQ_DISABLE);
-#endif
-
-#ifndef CONFIG_MTK_CLKMGR
-	ddp_clk_prepare(DISP_MTCMOS_CLK);
-#endif
-
-#ifndef CONFIG_MTK_CLKMGR
-	if (_is_decouple_mode(pgc->session_mode))
-		dpmgr_path_power_on(pgc->ovl2mem_path_handle, CMDQ_DISABLE);
-#endif
-
-	DISPCHECK("[POWER]dpmanager re-init[begin]\n");
-	{
-		LCM_PARAMS *lcm_param = NULL;
-		disp_ddp_path_config *data_config = NULL;
-
-		if (_is_decouple_mode(pgc->session_mode))
-			dpmgr_path_connect(pgc->ovl2mem_path_handle, CMDQ_DISABLE);
-
-		lcm_param = disp_lcm_get_params(pgc->plcm);
-
-		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
-
-		data_config->dst_w = lcm_param->width;
-		data_config->dst_h = lcm_param->height;
-		if (lcm_param->type == LCM_TYPE_DSI) {
-			if (lcm_param->dsi.data_format.format == LCM_DSI_FORMAT_RGB888)
-				data_config->lcm_bpp = 24;
-			else if (lcm_param->dsi.data_format.format == LCM_DSI_FORMAT_RGB565)
-				data_config->lcm_bpp = 16;
-			else if (lcm_param->dsi.data_format.format == LCM_DSI_FORMAT_RGB666)
-				data_config->lcm_bpp = 18;
-		} else if (lcm_param->type == LCM_TYPE_DPI) {
-			if (lcm_param->dpi.format == LCM_DPI_FORMAT_RGB888)
-				data_config->lcm_bpp = 24;
-			else if (lcm_param->dpi.format == LCM_DPI_FORMAT_RGB565)
-				data_config->lcm_bpp = 16;
-			if (lcm_param->dpi.format == LCM_DPI_FORMAT_RGB666)
-				data_config->lcm_bpp = 18;
-		}
-
-		data_config->fps = pgc->lcm_fps;
-		data_config->dst_dirty = 1;
-
-		if (_is_decouple_mode(pgc->session_mode)) {
-			data_config = dpmgr_path_get_last_config(pgc->ovl2mem_path_handle);
-
-			data_config->fps = pgc->lcm_fps;
-			data_config->dst_dirty = 1;
-			data_config->wdma_dirty = 1;
-			ret = dpmgr_path_config(pgc->ovl2mem_path_handle, data_config, NULL);
-		}
-	}
-
-	DISPCHECK("[POWER]ovl2mem path start[begin]\n");
-	if (_is_decouple_mode(pgc->session_mode))
-		dpmgr_path_start(pgc->ovl2mem_path_handle, CMDQ_DISABLE);
-	DISPCHECK("[POWER]ovl2mem path start[end]\n");
-
-	DISPCHECK("[POWER]start cmdq[begin]\n");
-	_cmdq_start_trigger_loop();
-	DISPCHECK("[POWER]start cmdq[end]\n");
-
-	if (is_mmdvfs_supported() && mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_D1_PLUS &&
-		primary_display_get_width() > 800) {
-		DISPMSG("set MMDVFS high\n");
-		mmdvfs_set_step(MMDVFS_SCEN_DISP, MMDVFS_VOLTAGE_HIGH); /* Enter HPM mode */
-	}
-
-	/* primary_display_diagnose(); */
-#ifndef DISP_NO_AEE
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_late_resume", WDT_SETBY_Display);
-#endif
-	MMProfileLogEx(ddp_mmp_get_events()->primary_resume, MMProfileFlagEnd, 0, 0);
-
-	ddp_dump_analysis(DISP_MODULE_OVL0);
-	pgc->force_on_wdma_path = 1;
 	return 0;
 }
 
@@ -6436,17 +6340,14 @@ int primary_display_trigger(int blocking, void *callback, unsigned int userdata)
 				config_wdma_output(pgc->ovl2mem_path_handle, pgc->cmdq_handle_ovl1to2_config,
 					&cached_session_output[DISP_SESSION_PRIMARY - 1], 0);
 			DISPPR_ERROR("There is no output config when decouple mirror!!\n");
-		} else {
-#ifdef CONFIG_ALL_IN_TRIGGER_STAGE
-			is_output_buffer_set = 0;
-#endif
-			pgc->need_trigger_dcMirror_out = 0;
-			_trigger_ovl_to_memory_mirror(pgc->ovl2mem_path_handle,
-						      pgc->cmdq_handle_ovl1to2_config,
-						      (fence_release_callback)
-						      _olv_wdma_fence_release_callback,
-						      DISP_SESSION_DECOUPLE_MIRROR_MODE);
 		}
+
+		pgc->need_trigger_dcMirror_out = 0;
+		_trigger_ovl_to_memory_mirror(pgc->ovl2mem_path_handle,
+					      pgc->cmdq_handle_ovl1to2_config,
+					      (fence_release_callback)
+					      _olv_wdma_fence_release_callback,
+					      DISP_SESSION_DECOUPLE_MIRROR_MODE);
 	} else if (pgc->session_mode == DISP_SESSION_DECOUPLE_MODE) {
 		if (pgc->dc_type == DISP_OUTPUT_DECOUPLE) {
 			uint32_t writing_mva = 0;
@@ -6468,7 +6369,6 @@ int primary_display_trigger(int blocking, void *callback, unsigned int userdata)
 			decouple_wdma_config.dstAddress = writing_mva;
 			mem_config.addr = writing_mva;
 			mem_config.fmt = decouple_wdma_config.outputFormat;
-			mem_config.pitch = decouple_wdma_config.dstPitch;
 			_config_wdma_output(&decouple_wdma_config, pgc->ovl2mem_path_handle,
 					    pgc->cmdq_handle_ovl1to2_config);
 			MMProfileLogEx(ddp_mmp_get_events()->primary_wdma_config,
@@ -6527,11 +6427,8 @@ int primary_display_memory_trigger(int blocking, void *callback, unsigned int us
 
 	_primary_path_lock(__func__);
 
-	if (pgc->state == DISP_SLEPT) {
+	if (pgc->state == DISP_SLEPT)
 		DISPMSG("%s, primary dipslay is sleep\n", __func__);
-		if (pgc->force_on_wdma_path == 0)
-			primary_display_resume_ovl2mem();
-	}
 
 	if (pgc->session_mode == DISP_SESSION_DECOUPLE_MODE || pgc->session_mode == DISP_SESSION_DECOUPLE_MIRROR_MODE) {
 		if (primary_display_is_secure_path(DISP_SESSION_MEMORY)) {
@@ -6749,13 +6646,9 @@ int primary_display_config_output(disp_mem_output_config *output, unsigned int s
 	}
 
 	if (_is_decouple_mode(pgc->session_mode)) {
-#ifndef CONFIG_ALL_IN_TRIGGER_STAGE
 		if (_is_mirror_mode(pgc->session_mode))
 			pgc->need_trigger_dcMirror_out = 1;
-#else
-		if (_is_mirror_mode(pgc->session_mode) && is_output_buffer_set)
-			pgc->need_trigger_dcMirror_out = 1;
-#endif
+
 	} else {
 		/* direct link mirror mode should add memout first */
 		dpmgr_path_add_memout(pgc->dpmgr_handle, ENGINE_OVL0, cmdq_handle);
@@ -7999,13 +7892,8 @@ int _set_backlight_by_cpu(unsigned int level)
 int primary_display_setbacklight(unsigned int level)
 {
 	int ret = 0;
-	static unsigned int last_level;
 
 	DISPFUNC();
-
-	if (last_level == level)
-		return 0;
-
 	MMProfileLogEx(ddp_mmp_get_events()->primary_set_bl, MMProfileFlagStart, 0, 0);
 #ifdef DISP_SWITCH_DST_MODE
 	_primary_path_switch_dst_lock();
@@ -8035,11 +7923,9 @@ int primary_display_setbacklight(unsigned int level)
 #endif
 			_set_backlight_by_cpu(level);
 		}
-		last_level = level;
 	}
 #ifndef CONFIG_FPGA_EARLY_PORTING
-// lenovo-sw wuwl10 20150526 modify for backlight ic control
-#if 0//def GPIO_LCM_LED_EN
+#ifdef GPIO_LCM_LED_EN
 	if (0 == level)
 		mt_set_gpio_out(GPIO_LCM_LED_EN, GPIO_OUT_ZERO);
 	else
@@ -8074,121 +7960,7 @@ int primary_display_setbacklight(unsigned int level)
 	MMProfileLogEx(ddp_mmp_get_events()->primary_set_bl, MMProfileFlagEnd, 0, 0);
 	return ret;
 }
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-int primary_display_setcabc(unsigned int mode)
-{
-	int ret=0;
-	DISPFUNC();
-	printk("%s begin\n",__func__);
-#ifdef DISP_SWITCH_DST_MODE
-	_primary_path_switch_dst_lock();
-#endif
-	_primary_path_cmd_lock();
-	_primary_path_lock(__func__);
 
-	if(pgc->state == DISP_SLEPT)
-	{
-		DISPCHECK("Sleep State set cabc invald\n");
-	}
-	else
-	{
-		disp_update_trigger_time();
-		if(primary_display_cmdq_enabled())	
-		{	
-			if(primary_display_is_video_mode())
-			{
-				disp_lcm_set_cabc(pgc->plcm,mode);
-			}
-			else
-			{
-				// CMD mode need to exit top clock off idle mode
-				//_disp_primary_path_exit_idle("primary_display_setcabc", 0);
-				//_set_backlight_by_cmdq(level);
-				//todo not supported
-				printk("%s not supported command mode.\n",__func__);
-			}
-		}
-		else
-		{
-			//to not supported
-			printk("%s not supported if cmdq not enabled.\n",__func__);
-		/*
-			if(primary_display_is_video_mode()==0)
-			{
-                _disp_primary_path_exit_idle("primary_display_setbacklight", 0);
-			}
-			_set_backlight_by_cpu(level);
-		*/
-		}
-	}
-
-	_primary_path_unlock(__func__);
-	_primary_path_cmd_unlock();
-#ifdef DISP_SWITCH_DST_MODE
-	_primary_path_switch_dst_unlock();
-#endif
-	printk("%s end\n",__func__);
-	return ret;
-}
-
-int primary_display_setinverse(unsigned int mode)
-{
-	int ret=0;
-	DISPFUNC();
-	printk("%s begin\n",__func__);
-#ifdef DISP_SWITCH_DST_MODE
-	_primary_path_switch_dst_lock();
-#endif
-	_primary_path_cmd_lock();
-	_primary_path_lock(__func__);
-
-	if(pgc->state == DISP_SLEPT)
-	{
-		DISPCHECK("Sleep State set inverse invald\n");
-	}
-	else
-	{
-		disp_update_trigger_time();
-		if(primary_display_cmdq_enabled())	
-		{	
-			if(primary_display_is_video_mode())
-			{
-				disp_lcm_set_inverse(pgc->plcm,mode);
-			}
-			else
-			{
-				// CMD mode need to exit top clock off idle mode
-				//_disp_primary_path_exit_idle("primary_display_setcabc", 0);
-				//_set_backlight_by_cmdq(level);
-				//todo not supported
-				printk("%s not supported command mode.\n",__func__);
-			}
-		}
-		else
-		{
-			//to not supported
-			printk("%s not supported if cmdq not enabled.\n",__func__);
-		/*
-			if(primary_display_is_video_mode()==0)
-			{
-                _disp_primary_path_exit_idle("primary_display_setbacklight", 0);
-			}
-			_set_backlight_by_cpu(level);
-		*/
-		}
-	}
-
-	_primary_path_unlock(__func__);
-	_primary_path_cmd_unlock();
-#ifdef DISP_SWITCH_DST_MODE
-	_primary_path_switch_dst_unlock();
-#endif
-	printk("%s end\n",__func__);
-	return ret;
-}
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
 int primary_display_set_cmd(int *lcm_cmd, unsigned int cmd_num)
 {
 	int ret = 0;

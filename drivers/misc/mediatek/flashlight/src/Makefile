@@ -1,3 +1,4 @@
+include $(srctree)/drivers/misc/mediatek/Makefile.custom
 export MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 export ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 

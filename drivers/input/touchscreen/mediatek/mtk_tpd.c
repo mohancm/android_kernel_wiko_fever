@@ -42,9 +42,13 @@
 #define TPD_GET_VELOCITY_CUSTOM_X _IO(TOUCH_IOC_MAGIC, 0)
 #define TPD_GET_VELOCITY_CUSTOM_Y _IO(TOUCH_IOC_MAGIC, 1)
 #define TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, 2, struct tpd_filter_t)
+#define TOUCH_IO_MAGIC                   0xC0
+#define FTM_IOCTL_UPDATE	        _IOW(TOUCH_IO_MAGIC,  0x02,int)
 #ifdef CONFIG_COMPAT
 #define COMPAT_TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, 2, struct tpd_filter_t)
+#define COMPAT_FTM_IOCTL_UPDATE	        _IOW(TOUCH_IO_MAGIC,  0x02,compat_int_t)
 #endif
+static struct tpd_driver_t *g_tpd_drv;
 struct tpd_filter_t tpd_filter;
 struct tpd_dts_info tpd_dts_data;
 struct pinctrl *pinctrl1;
@@ -212,6 +216,19 @@ static long tpd_compat_ioctl(struct file *file, unsigned int cmd, unsigned long 
 			return ret;
 		}
 		break;
+		case COMPAT_FTM_IOCTL_UPDATE:
+			if(arg32 == NULL)
+		{
+			printk("invalid argument.");
+			return -EINVAL;
+		}
+		ret = file->f_op->unlocked_ioctl(file, FTM_IOCTL_UPDATE,
+					   (unsigned long)arg32);
+		if (ret){
+		   printk("TPD_GET_FILTER_PARA unlocked_ioctl failed.");
+		   return ret;
+		}
+			break;
 	default:
 		pr_err("tpd: unknown IOCTL: 0x%08x\n", cmd);
 		ret = -ENOIOCTLCMD;
@@ -237,6 +254,13 @@ static long tpd_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lon
 	}
 
 	switch (cmd) {
+	case FTM_IOCTL_UPDATE:
+		printk("geroge   tpd  ftm force upgrde :\n");
+		char  ftm_update[126] ={ 0};
+   if( g_tpd_drv && g_tpd_drv->tpd_ftm_force_update){
+       g_tpd_drv->tpd_ftm_force_update(ftm_update);
+   }
+		break;
 	case TPD_GET_VELOCITY_CUSTOM_X:
 		data = (void __user *)arg;
 
@@ -344,7 +368,7 @@ static struct platform_driver tpd_driver = {
 			.of_match_table = touch_of_match,
 	},
 };
-static struct tpd_driver_t *g_tpd_drv;
+
 /* hh: use fb_notifier */
 static struct notifier_block tpd_fb_notifier;
 /* use fb_notifier */
@@ -414,6 +438,9 @@ int tpd_driver_add(struct tpd_driver_t *tpd_drv)
 		tpd_driver_list[0].suspend = tpd_drv->suspend;
 		tpd_driver_list[0].resume = tpd_drv->resume;
 		tpd_driver_list[0].tpd_have_button = tpd_drv->tpd_have_button;
+		tpd_driver_list[0].tpd_get_fw_version = NULL;
+		tpd_driver_list[0].tpd_get_fw_vendor_name = NULL;
+		tpd_driver_list[0].tpd_ftm_force_update= NULL;
 		return 0;
 	}
 	for (i = 1; i < TP_DRV_MAX_COUNT; i++) {
@@ -425,6 +452,9 @@ int tpd_driver_add(struct tpd_driver_t *tpd_drv)
 			tpd_driver_list[i].resume = tpd_drv->resume;
 			tpd_driver_list[i].tpd_have_button = tpd_drv->tpd_have_button;
 			tpd_driver_list[i].attrs = tpd_drv->attrs;
+           		tpd_driver_list[i].tpd_get_fw_version = tpd_drv->tpd_get_fw_version;
+           		tpd_driver_list[i].tpd_get_fw_vendor_name = tpd_drv->tpd_get_fw_vendor_name;
+				tpd_driver_list[i].tpd_ftm_force_update= tpd_drv->tpd_ftm_force_update;
 #if 0
 			if (tpd_drv->tpd_local_init() == 0) {
 				TPD_DMESG("load %s successfully\n",
@@ -456,13 +486,76 @@ int tpd_driver_remove(struct tpd_driver_t *tpd_drv)
 	}
 	return 0;
 }
-
-static void tpd_create_attributes(struct device *dev, struct tpd_attrs *attrs)
+int tpd_fw_version = 0;
+char tpd_desc[50]={0};
+static ssize_t tpd_fw_version_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
 {
-	int num = attrs->num;
+    char  vl_fw_vendor_number[256] ={ 0};
+    if( g_tpd_drv && g_tpd_drv->tpd_get_fw_version )
+    {
+        g_tpd_drv->tpd_get_fw_version(vl_fw_vendor_number);
+    }
+    return sprintf(buf, "%s", vl_fw_vendor_number);
+}
 
-	for (; num > 0;)
-		device_create_file(dev, attrs->attr[--num]);
+static ssize_t tpd_fw_vendor_info_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+   char  vl_fw_vendor_name[256] ={ 0};
+    if( g_tpd_drv && g_tpd_drv->tpd_get_fw_vendor_name )
+    {
+        g_tpd_drv->tpd_get_fw_vendor_name(vl_fw_vendor_name);
+    }
+    return sprintf(buf, "%s", vl_fw_vendor_name);
+}
+static ssize_t tpd_fw_chip_info_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+    if( g_tpd_drv )
+    {
+	return sprintf(buf, "%s", g_tpd_drv->tpd_device_name);
+    }
+    return 0;
+}
+static DRIVER_ATTR(tpd_fw_version, S_IWUSR | S_IRUGO, tpd_fw_version_show, NULL);
+static DRIVER_ATTR(tpd_fw_vendor_info, S_IWUSR | S_IRUGO, tpd_fw_vendor_info_show, NULL);
+static DRIVER_ATTR(tpd_fw_chip_info, S_IWUSR | S_IRUGO, tpd_fw_chip_info_show, NULL);
+static struct driver_attribute *mtk_tpd_attr_list[] = {
+	&driver_attr_tpd_fw_version,	/*chip information */
+	&driver_attr_tpd_fw_vendor_info,	/*dump sensor data */
+	&driver_attr_tpd_fw_chip_info,	/*show calibration data */
+};
+static int mtk_tpd_create_attr(struct device_driver *driver)
+{
+	int idx, err = 0;
+	int num = (int)(sizeof(mtk_tpd_attr_list) / sizeof(mtk_tpd_attr_list[0]));
+
+	if (driver == NULL)
+		return -EINVAL;
+
+	for (idx = 0; idx < num; idx++) {
+		err = driver_create_file(driver, mtk_tpd_attr_list[idx]);
+		if (0 != err) {
+			TPD_DMESG("driver_create_file (%s) = %d\n", mtk_tpd_attr_list[idx]->attr.name,
+				err);
+			break;
+		}
+	}
+	return err;
+}
+static int mtk_tpd_delete_attr(struct device_driver *driver)
+{
+	int idx, err = 0;
+	int num = (int)(sizeof(mtk_tpd_attr_list) / sizeof(mtk_tpd_attr_list[0]));
+	if (driver == NULL)
+		return -EINVAL;
+	for (idx = 0; idx < num; idx++)
+		driver_remove_file(driver, mtk_tpd_attr_list[idx]);
+	return err;
 }
 
 /* touch panel probe */
@@ -476,7 +569,7 @@ static int tpd_probe(struct platform_device *pdev)
 	int ret = 0;
 #endif
 #endif
-
+       int ret = 0;
 	TPD_DMESG("enter %s, %d\n", __func__, __LINE__);
 
 	if (misc_register(&tpd_misc_device))
@@ -626,13 +719,20 @@ static int tpd_probe(struct platform_device *pdev)
 	if (g_tpd_drv->tpd_have_button)
 		tpd_button_init();
 
-	if (g_tpd_drv->attrs.num)
-		tpd_create_attributes(&pdev->dev, &g_tpd_drv->attrs);
+	ret = mtk_tpd_create_attr(&tpd_driver.driver);
+	if (0 != ret) {
+		TPD_DMESG("create attribute err = %d\n", ret);
+	}
 
 	return 0;
 }
 static int tpd_remove(struct platform_device *pdev)
 {
+       int ret;
+	ret = mtk_tpd_delete_attr(&tpd_driver.driver);
+	if (0 != ret) {
+		TPD_DMESG("create attribute err = %d\n", ret);
+	}
 	input_unregister_device(tpd->dev);
 	return 0;
 }

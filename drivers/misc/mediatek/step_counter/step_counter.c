@@ -1,81 +1,50 @@
 
 #include "step_counter.h"
-#include <linux/delay.h>
 
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 start  */
-#define STEP_COUNTER_INT_MODE_SUPPORT
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 end */
-
-static struct step_c_context *step_c_context_obj = NULL;
+static struct step_c_context *step_c_context_obj;
 
 
 static struct step_c_init_info *step_counter_init_list[MAX_CHOOSE_STEP_C_NUM] = { 0 };	/* modified */
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
 static void step_c_early_suspend(struct early_suspend *h);
 static void step_c_late_resume(struct early_suspend *h);
-#endif
 
 static void step_c_work_func(struct work_struct *work)
 {
 
 	struct step_c_context *cxt = NULL;
+	int out_size;
 	/* hwm_sensor_data sensor_data; */
-	uint64_t value;
-	int status;
+	int value, status, div;
 	int64_t nt;
 	struct timespec time;
-	int err;
-	u64 rawData; /* mtk step counter interface api requirement  --add by liaoxl.lenovo 5.12.2015 */
+	int err, idx;
 
 	cxt = step_c_context_obj;
 
-	if (NULL == cxt->step_c_data.get_data) {
+	if (NULL == cxt->step_c_data.get_data)
 		STEP_C_LOG("step_c driver not register data path\n");
-		goto step_c_loop;  /* fix system reboot caused by NULL pointer  --add by liaoxl.lenovo 7.12.2015 */
-	}
+
 
 	time.tv_sec = time.tv_nsec = 0;
 	time = get_monotonic_coarse();
 	nt = time.tv_sec * 1000000000LL + time.tv_nsec;
 
 	/* add wake lock to make sure data can be read before system suspend */
-	/* fix 64bit access overflow issue   -- modified by liaoxl.lenovo 5.12.2015 start*/
-	err = cxt->step_c_data.get_data(&rawData, &status);
-	/* fix 64bit access overflow issue   -- modified by liaoxl.lenovo 5.12.2015 end */
+	err = cxt->step_c_data.get_data(&value, &status);
+
 	if (err) {
 		STEP_C_ERR("get step_c data fails!!\n");
 		goto step_c_loop;
-	}
-	else
-	{
-		/* step counter is a on-change type sensor, don't report when same value -- modified by liaoxl.lenovo 5.12.2015 start*/
-		if(0 == (rawData >> 31))
+	} else {
 		{
-			value = (int)rawData;
-		}
-		else
-		{
-			value = (int)(rawData & 0x000000007FFFFFFF);
-			STEP_C_ERR("get step_c data overflow 31bit!!\n" );
-		}
-
-		if(value != cxt->drv_data.step_c_data.values[0])
-		{	
 			cxt->drv_data.step_c_data.values[0] = value;
 			cxt->drv_data.step_c_data.status = status;
 			cxt->drv_data.step_c_data.time = nt;
 		}
-		else
-		{
-			/* no new steps, no need to update */
-			goto step_c_loop;
-		}
-		/* step counter is a on-change type sensor, don't report when same value -- modified by liaoxl.lenovo 5.12.2015 start*/
-	 }
-    
-	if(true ==  cxt->is_first_data_after_enable)
-	{
+	}
+
+	if (true == cxt->is_first_data_after_enable) {
 		cxt->is_first_data_after_enable = false;
 		/* filter -1 value */
 		if (STEP_C_INVALID_VALUE == cxt->drv_data.step_c_data.values[0]) {
@@ -92,17 +61,8 @@ static void step_c_work_func(struct work_struct *work)
 			   cxt->drv_data.step_c_data.values[0], cxt->drv_data.step_c_data.status);
 
 step_c_loop:
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 start  */
-#ifndef STEP_COUNTER_INT_MODE_SUPPORT
-	if(true == cxt->is_polling_run)
-	{
-		{
-		  mod_timer(&cxt->timer, jiffies + atomic_read(&cxt->delay)/(1000/HZ)); 
-		}
-	}
-#endif
-	value = 0;
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 end  */
+	if (true == cxt->is_polling_run)
+		mod_timer(&cxt->timer, jiffies + atomic_read(&cxt->delay) / (1000 / HZ));
 }
 
 static void step_c_poll(unsigned long data)
@@ -133,26 +93,19 @@ static struct step_c_context *step_c_context_alloc_object(void)
 	obj->is_polling_run = false;
 	mutex_init(&obj->step_c_op_mutex);
 	obj->is_batch_enable = false;	/* for batch mode init */
-	/* init sensor status, add by liaoxl.lenovo 5.12.2015 start*/
-	obj->is_step_d_active = false;
-	obj->is_sigmot_active = false;
-	obj->is_active_data = false;
-	obj->is_active_nodata = false;
-	/* init sensor status, add by liaoxl.lenovo 5.12.2015 end*/
 
 	STEP_C_LOG("step_c_context_alloc_object----\n");
 	return obj;
 }
 
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 start  */
-int  step_notify(STEP_NOTIFY_TYPE type)
+int step_notify(STEP_NOTIFY_TYPE type)
 {
 	int err = 0;
 	int value = 0;
 	struct step_c_context *cxt = NULL;
 
 	cxt = step_c_context_obj;
-	STEP_C_LOG("step_notify++ with type=%d\n", type);
+	STEP_C_LOG("step_notify++++\n");
 
 	if (type == TYPE_STEP_DETECTOR) {
 		STEP_C_LOG("fwq TYPE_STEP_DETECTOR notify\n");
@@ -163,39 +116,26 @@ int  step_notify(STEP_NOTIFY_TYPE type)
 		input_sync(cxt->idev);
 
 	}
-	else if (type == TYPE_SIGNIFICANT) {
+	if (type == TYPE_SIGNIFICANT) {
 		STEP_C_LOG("fwq TYPE_SIGNIFICANT notify\n");
 		/* cxt->step_c_data.get_data_significant(&value); */
 		value = 1;
 		input_report_rel(cxt->idev, EVENT_TYPE_SIGNIFICANT_VALUE, value);
 		input_sync(cxt->idev);
 	}
-	else if (type == TYPE_STEP_COUNTER)	{
-		STEP_C_LOG("fwq TYPE_STEP_COUNTER notify\n");
-		
-		step_c_work_func(0);
-	}
 
 	return err;
 }
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 end  */
 
-/* fix step counter stop working after disable other sensor issue -- modified by liaoxl.lenovo 5.12.2015 start  */
 static int step_d_real_enable(int enable)
 {
-	int err =0, old;
+	int err = 0;
 	struct step_c_context *cxt = NULL;
 
 	cxt = step_c_context_obj;
-	if (false == cxt->is_step_d_active)
-		old = 0;
-	else
-		old = 1;
-		
-	if(old == enable)
-		return 0;
-		
 	if (1 == enable) {
+
+
 		err = cxt->step_c_ctl.enable_step_detect(1);
 		if (err) {
 			err = cxt->step_c_ctl.enable_step_detect(1);
@@ -205,29 +145,19 @@ static int step_d_real_enable(int enable)
 					STEP_C_ERR("step_d enable(%d) err 3 timers = %d\n", enable,
 						   err);
 			}
-			else
-	   		{
-				cxt->is_step_d_active = true;
-	    	}
 		}
-		else
-	    {
-			cxt->is_step_d_active = true;
-	    }
-		
 		STEP_C_LOG("step_d real enable\n");
 	}
 
 
 	if (0 == enable) {
+
 		err = cxt->step_c_ctl.enable_step_detect(0);
-		if (err) {
+		if (err)
 			STEP_C_ERR("step_d enable(%d) err = %d\n", enable, err);
-		}
-		else {
-			cxt->is_step_d_active = false;
-		}
-		STEP_C_LOG("step_d real disable  \n" );
+
+		STEP_C_LOG("step_d real disable\n");
+
 	}
 
 	return err;
@@ -235,18 +165,13 @@ static int step_d_real_enable(int enable)
 
 static int significant_real_enable(int enable)
 {
-	int err =0, old;
+	int err = 0;
 	struct step_c_context *cxt = NULL;
-	
+
 	cxt = step_c_context_obj;
-	if(false == cxt->is_sigmot_active)
-		old = 0;
-	else
-		old = 1;
-	if (old == enable)
-		return 0;
-		
 	if (1 == enable) {
+
+
 		err = cxt->step_c_ctl.enable_significant(1);
 		if (err) {
 			err = cxt->step_c_ctl.enable_significant(1);
@@ -257,35 +182,23 @@ static int significant_real_enable(int enable)
 					    ("enable_significant enable(%d) err 3 timers = %d\n",
 					     enable, err);
 			}
-			else {
-				cxt->is_sigmot_active = true;
-	    	}
 		}
-		else {
-			cxt->is_sigmot_active = true;
-	    }
-		
 		STEP_C_LOG("enable_significant real enable\n");
 	}
 
 
 	if (0 == enable) {
+
 		err = cxt->step_c_ctl.enable_significant(0);
 		if (err)
-		{ 
 			STEP_C_ERR("enable_significantenable(%d) err = %d\n", enable, err);
-		}
-		else
-		{
-			cxt->is_sigmot_active = false;
-		}
 
-		STEP_C_LOG("enable_significant real disable  \n" );	 
+		STEP_C_LOG("enable_significant real disable\n");
+
 	}
 
 	return err;
 }
-/* fix step counter stop working after disable other sensor issue -- modified by liaoxl.lenovo 5.12.2015 end */
 
 
 static int step_c_real_enable(int enable)
@@ -328,6 +241,7 @@ static int step_c_real_enable(int enable)
 static int step_c_enable_data(int enable)
 {
 	struct step_c_context *cxt = NULL;
+	int err = 0;
 
 	cxt = step_c_context_obj;
 	if (NULL == cxt->step_c_ctl.open_report_data) {
@@ -340,8 +254,6 @@ static int step_c_enable_data(int enable)
 		cxt->is_active_data = true;
 		cxt->is_first_data_after_enable = true;
 		cxt->step_c_ctl.open_report_data(1);
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 start  */
-#ifndef STEP_COUNTER_INT_MODE_SUPPORT
 		if (false == cxt->is_polling_run && cxt->is_batch_enable == false) {
 			if (false == cxt->step_c_ctl.is_report_input_direct) {
 				mod_timer(&cxt->timer,
@@ -349,8 +261,6 @@ static int step_c_enable_data(int enable)
 				cxt->is_polling_run = true;
 			}
 		}
-#endif
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 end  */
 	}
 	if (0 == enable) {
 		STEP_C_LOG("STEP_C disable\n");
@@ -375,6 +285,7 @@ static int step_c_enable_data(int enable)
 int step_c_enable_nodata(int enable)
 {
 	struct step_c_context *cxt = NULL;
+	int err = 0;
 
 	cxt = step_c_context_obj;
 	if (NULL == cxt->step_c_ctl.enable_nodata) {
@@ -405,10 +316,10 @@ static ssize_t step_c_show_enable_nodata(struct device *dev,
 static ssize_t step_c_store_enable_nodata(struct device *dev, struct device_attribute *attr,
 					  const char *buf, size_t count)
 {
-	struct step_c_context *cxt = NULL;
-
 	STEP_C_LOG("step_c_store_enable nodata buf=%s\n", buf);
 	mutex_lock(&step_c_context_obj->step_c_op_mutex);
+	struct step_c_context *cxt = NULL;
+	int err = 0;
 
 	cxt = step_c_context_obj;
 	if (NULL == cxt->step_c_ctl.enable_nodata) {
@@ -424,13 +335,12 @@ static ssize_t step_c_store_enable_nodata(struct device *dev, struct device_attr
 		STEP_C_ERR(" step_c_store enable nodata cmd error !!\n");
 
 	mutex_unlock(&step_c_context_obj->step_c_op_mutex);
-
-	return 0;
 }
 
 static ssize_t step_c_store_active(struct device *dev, struct device_attribute *attr,
 				   const char *buf, size_t count)
 {
+	STEP_C_LOG("step_c_store_active buf=%s\n", buf);
 	struct step_c_context *cxt = NULL;
 	int res = 0;
 	int handle = 0;
@@ -489,24 +399,23 @@ static ssize_t step_c_store_active(struct device *dev, struct device_attribute *
 static ssize_t step_c_show_active(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct step_c_context *cxt = NULL;
-	int enc,div;
 
 	cxt = step_c_context_obj;
-	div = cxt->step_c_data.vender_div;
+	int div = cxt->step_c_data.vender_div;
+
 	STEP_C_LOG("step_c vender_div value: %d\n", div);
-	enc = (int)cxt->is_active_data;
-	return snprintf(buf, PAGE_SIZE, "%d - (%d)\n", div, enc); 
+	return snprintf(buf, PAGE_SIZE, "%d\n", div);
 }
 
 static ssize_t step_c_store_delay(struct device *dev, struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
+	mutex_lock(&step_c_context_obj->step_c_op_mutex);
+	struct step_c_context *devobj = (struct step_c_context *)dev_get_drvdata(dev);
 	int delay;
 	int mdelay = 0;
 	struct step_c_context *cxt = NULL;
 	int err = 0;
-//	struct step_c_context *devobj = (struct step_c_context *)dev_get_drvdata(dev);
-	mutex_lock(&step_c_context_obj->step_c_op_mutex);
 
 	cxt = step_c_context_obj;
 	if (NULL == cxt->step_c_ctl.set_delay) {
@@ -545,10 +454,11 @@ static ssize_t step_c_show_delay(struct device *dev, struct device_attribute *at
 static ssize_t step_c_store_batch(struct device *dev, struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
-	struct step_c_context *cxt = NULL;
-	
 	STEP_C_LOG("step_c_store_batch buf=%s\n", buf);
-	mutex_lock(&step_c_context_obj->step_c_op_mutex);	
+	mutex_lock(&step_c_context_obj->step_c_op_mutex);
+	struct step_c_context *cxt = NULL;
+	int err = 0;
+
 	cxt = step_c_context_obj;
 
 	if (!strncmp(buf, "1", 1)) {
@@ -563,8 +473,6 @@ static ssize_t step_c_store_batch(struct device *dev, struct device_attribute *a
 		}
 	} else if (!strncmp(buf, "0", 1)) {
 		cxt->is_batch_enable = false;
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 start  */
-#ifndef STEP_COUNTER_INT_MODE_SUPPORT
 		if (false == cxt->is_polling_run) {
 			if (false == cxt->step_c_ctl.is_report_input_direct) {
 				mod_timer(&cxt->timer,
@@ -572,8 +480,6 @@ static ssize_t step_c_store_batch(struct device *dev, struct device_attribute *a
 				cxt->is_polling_run = true;
 			}
 		}
-#endif
-/* step counter sensor interrupt mode support -- modified by liaoxl.lenovo 7.12.2015 end  */
 	} else {
 		STEP_C_ERR(" step_c_store_batch error !!\n");
 	}
@@ -591,10 +497,8 @@ static ssize_t step_c_show_batch(struct device *dev, struct device_attribute *at
 static ssize_t step_c_store_flush(struct device *dev, struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
-//	struct step_c_context *devobj = (struct step_c_context *)dev_get_drvdata(dev);
-
 	mutex_lock(&step_c_context_obj->step_c_op_mutex);
-
+	struct step_c_context *devobj = (struct step_c_context *)dev_get_drvdata(dev);
 	/* do read FIFO data function and report data immediately */
 	mutex_unlock(&step_c_context_obj->step_c_op_mutex);
 	return count;
@@ -607,7 +511,7 @@ static ssize_t step_c_show_flush(struct device *dev, struct device_attribute *at
 
 static ssize_t step_c_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	const char *devname = NULL;
+	char *devname = NULL;
 
 	devname = dev_name(&step_c_context_obj->idev->dev);
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
@@ -697,8 +601,7 @@ int step_c_driver_add(struct step_c_init_info *obj)
 	}
 
 	return err;
-} 
-EXPORT_SYMBOL_GPL(step_c_driver_add);
+} EXPORT_SYMBOL_GPL(step_c_driver_add);
 
 static int step_c_misc_init(struct step_c_context *cxt)
 {
@@ -780,6 +683,7 @@ static struct attribute_group step_c_attribute_group = {
 int step_c_register_data_path(struct step_c_data_path *data)
 {
 	struct step_c_context *cxt = NULL;
+	int err = 0;
 
 	cxt = step_c_context_obj;
 	cxt->step_c_data.get_data = data->get_data;
@@ -842,8 +746,6 @@ int step_c_data_report(struct input_dev *dev, int value, int status)
 	input_report_abs(dev, EVENT_TYPE_STEP_C_VALUE, value);
 	input_report_abs(dev, EVENT_TYPE_STEP_C_STATUS, status);
 	input_sync(dev);
-
-	return 0;
 }
 
 static int step_c_probe(struct platform_device *pdev)
@@ -882,10 +784,10 @@ static int step_c_probe(struct platform_device *pdev)
 	STEP_C_LOG("----step_c_probe OK !!\n");
 	return 0;
 
-//exit_hwmsen_create_attr_failed:
-//exit_misc_register_failed:
+exit_hwmsen_create_attr_failed:
+exit_misc_register_failed:
 
-//exit_err_sysfs:
+exit_err_sysfs:
 
 	if (err) {
 		STEP_C_ERR("sysfs node creation error\n");
@@ -925,22 +827,6 @@ static int step_c_remove(struct platform_device *pdev)
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
 static void step_c_early_suspend(struct early_suspend *h)
 {
-/* must to stop polling after system suspend, to fix power comsume issue -- add by liaoxl.lenovo 5.12.2015 start */
-	struct step_c_context *cxt = step_c_context_obj;
-
-#ifndef STEP_COUNTER_INT_MODE_SUPPORT
-	if((true == cxt->is_active_data) && (true == cxt->is_polling_run))
-	{
-		del_timer_sync(&cxt->timer);
-		cancel_work_sync(&cxt->report);
-	}
-#endif
-	if(true == cxt->is_step_d_active)
-	{
-		cxt->step_c_ctl.enable_step_detect(0);
-	}
-/* must to stop polling after system suspend, to fix power comsume issue -- add by liaoxl.lenovo 5.12.2015 end */
-
 	atomic_set(&(step_c_context_obj->early_suspend), 1);
 	STEP_C_LOG(" step_c_early_suspend ok------->hwm_obj->early_suspend=%d\n",
 		   atomic_read(&(step_c_context_obj->early_suspend)));
@@ -949,23 +835,9 @@ static void step_c_early_suspend(struct early_suspend *h)
 /*----------------------------------------------------------------------------*/
 static void step_c_late_resume(struct early_suspend *h)
 {
-/* must to stop polling after system suspend, to fix power comsume issue -- add by liaoxl.lenovo 5.12.2015 start */
-	struct step_c_context *cxt = step_c_context_obj;
-
-#ifndef STEP_COUNTER_INT_MODE_SUPPORT
-	if ((true == cxt->is_active_data) && (true == cxt->is_polling_run))
-	{
-		mod_timer(&cxt->timer, jiffies + atomic_read(&cxt->delay)/(1000/HZ));
-	}
-#endif
-	if (true == cxt->is_step_d_active)
-	{
-		cxt->step_c_ctl.enable_step_detect(1);
-	}
-/* must to stop polling after system suspend, to fix power comsume issue -- add by liaoxl.lenovo 5.12.2015 end */
-
 	atomic_set(&(step_c_context_obj->early_suspend), 0);
-	STEP_C_LOG(" step_c_late_resume ok------->hwm_obj->early_suspend=%d\n", atomic_read(&(step_c_context_obj->early_suspend)));
+	STEP_C_LOG(" step_c_late_resume ok------->hwm_obj->early_suspend=%d\n",
+		   atomic_read(&(step_c_context_obj->early_suspend)));
 }
 #endif
 static int step_c_suspend(struct platform_device *dev, pm_message_t state)

@@ -63,6 +63,9 @@ int rawbulk_bind_config(struct usb_configuration *c, int transfer_id);
 int rawbulk_function_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl);
 #endif
 
+#ifdef CONFIG_WIKO_UNIFY
+extern char* Market_Area;
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -89,8 +92,34 @@ static const char longname[] = "Gadget Android";
 #define MIDI_QUEUE_LENGTH   32
 
 /* Default manufacturer and product string , overridden by userspace */
+#if defined(CONFIG_PROJECT_P4605_MMX_IN)
+#define MANUFACTURER_STRING "Micromax"
+#define PRODUCT_STRING "Q427"
+#elif defined(CONFIG_PROJECT_P4601_CLF_PH)
+#define MANUFACTURER_STRING "Cloudfone"
+#define PRODUCT_STRING "Thrill Access"
+#elif defined(CONFIG_PROJECT_l5460_WIK_FR)
+#define MANUFACTURER_STRING "WIKO"
+#define PRODUCT_STRING "FEVER"
+#elif defined(CONFIG_PROJECT_P4601_WIK_FR)
+#define MANUFACTURER_STRING "WIKO"
+#define PRODUCT_STRING "U FEEL LITE"
+#elif defined(CONFIG_PROJECT_P6601_WIK_FR)
+#define MANUFACTURER_STRING "WIKO"
+#define PRODUCT_STRING "U FEEL"
+#elif defined(CONFIG_PROJECT_P4605_BLU_US)
+#define MANUFACTURER_STRING "BLU"
+#define PRODUCT_STRING "Studio Touch"
+#elif defined(CONFIG_PROJECT_P6601_BLU_US)
+#define MANUFACTURER_STRING "BLU"
+#define PRODUCT_STRING "R1 HD"
+#elif defined(CONFIG_PROJECT_P4601_CAS_TR)
+#define MANUFACTURER_STRING "Casper"
+#define PRODUCT_STRING "CASPER_VIA_E1"
+#else
 #define MANUFACTURER_STRING "MediaTek"
 #define PRODUCT_STRING "MT65xx Android Phone"
+#endif
 
 
 //#define USB_LOG "USB"
@@ -2473,8 +2502,22 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iProduct = id;
 
 	/* Default strings - should be updated by userspace */
-	strncpy(manufacturer_string, MANUFACTURER_STRING, sizeof(manufacturer_string) - 1);
-	strncpy(product_string, PRODUCT_STRING, sizeof(product_string) - 1);
+    strncpy(manufacturer_string, MANUFACTURER_STRING, sizeof(manufacturer_string) - 1);
+
+#ifdef CONFIG_WIKO_UNIFY
+	pr_notice("[USB]%s: Market_Area=%s \n", __func__,Market_Area);
+#if defined(CONFIG_PROJECT_l5460_WIK_FR)
+	if(!strncmp(Market_Area, "SE", strlen("SE")))
+    {
+	    strncpy(product_string, "FEVER Special Edition", sizeof(product_string) - 1);
+    }
+    else
+#endif
+#endif
+    {
+	    strncpy(product_string, PRODUCT_STRING, sizeof(product_string) - 1);
+    }
+
 	strncpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
 
 	id = usb_string_id(cdev);

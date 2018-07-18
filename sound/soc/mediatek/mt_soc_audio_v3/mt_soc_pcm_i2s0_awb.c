@@ -75,7 +75,7 @@ static int mtk_i2s0_dl1_awb_probe(struct snd_soc_platform *platform);
 
 static struct snd_pcm_hardware mtk_I2S0_awb_hardware = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED),
-	.formats =      SND_SOC_ADV_MT_FMTS, //SND_SOC_STD_MT_FMTS
+	.formats =      SND_SOC_STD_MT_FMTS,
 	.rates =        SOC_HIGH_USE_RATE,
 	.rate_min =     SOC_HIGH_USE_RATE_MIN,
 	.rate_max =     SOC_HIGH_USE_RATE_MAX,
@@ -96,14 +96,16 @@ static void StopAudioI2S0AWBHardware(struct snd_pcm_substream *substream)
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB, false);
 
 	/* here to set interrupt */
-	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, false);
 
 	/* stop I2S */
 	Afe_Set_Reg(AFE_I2S_CON, 0x0, 0x1);
 
 	/* here to turn off digital part */
-    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I00, Soc_Aud_InterConnectionOutput_O05);
-    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I01, Soc_Aud_InterConnectionOutput_O06);
+	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I00,
+		      Soc_Aud_InterConnectionOutput_O05);
+	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I01,
+		      Soc_Aud_InterConnectionOutput_O06);
 
 	EnableAfe(false);
 }
@@ -121,39 +123,36 @@ static void StartAudioI2S0AWBHardware(struct snd_pcm_substream *substream)
 
 
 	MclkDiv0 = SetCLkMclk(Soc_Aud_I2S0, runtime->rate); /* select I2S */
-    SetCLkBclk(MclkDiv0,  runtime->rate, runtime->channels, Soc_Aud_I2S_WLEN_WLEN_32BITS);
+	SetCLkBclk(MclkDiv0,  runtime->rate, runtime->channels,
+		   Soc_Aud_I2S_WLEN_WLEN_32BITS);
 
 	/* 2nd I2S In */
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_I2S,  runtime->rate);
 
 	Audio_I2S_Dac |= (bEnablePhaseShiftFix << 31);
-    Audio_I2S_Dac |= (Soc_Aud_I2S_IN_PAD_SEL_I2S_IN_FROM_IO_MUX << 28);//I2S in from io_mux
-//    Audio_I2S_Dac |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode   
+	Audio_I2S_Dac |= (Soc_Aud_I2S_IN_PAD_SEL_I2S_IN_FROM_IO_MUX <<
+			  28);/* I2S in from io_mux */
+	Audio_I2S_Dac |= Soc_Aud_LOW_JITTER_CLOCK << 12; /* Low jitter mode */
 	Audio_I2S_Dac |= (Soc_Aud_INV_LRCK_NO_INVERSE << 5);
 	Audio_I2S_Dac |= (Soc_Aud_I2S_FORMAT_I2S << 3);
 	Audio_I2S_Dac |= (Soc_Aud_I2S_WLEN_WLEN_32BITS << 1);
 	Afe_Set_Reg(AFE_I2S_CON, Audio_I2S_Dac | 0x1, MASK_ALL);
-#ifdef CONFIG_SND_SOC_FLORIDA 
-	if (substream->runtime->format == SNDRV_PCM_FORMAT_S32_LE || substream->runtime->format == SNDRV_PCM_FORMAT_U32_LE)
-    {
-        SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_AWB, AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
-        SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT, Soc_Aud_InterConnectionOutput_O05);
-        SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT, Soc_Aud_InterConnectionOutput_O06);	
-    }
-#endif
 	/* here to set interrupt */
-	irq_add_user(substream,
-		     Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
-		     substream->runtime->rate,
-		     substream->runtime->period_size >> 1);
+	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
+			 substream->runtime->period_size >> 1);
+	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
+			    substream->runtime->rate);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, true);
 
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_AWB, substream->runtime->rate);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB, true);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, true);
 
 	/* here to turn off digital part */
-    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I00, Soc_Aud_InterConnectionOutput_O05);
-    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I01, Soc_Aud_InterConnectionOutput_O06);
+	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I00,
+		      Soc_Aud_InterConnectionOutput_O05);
+	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I01,
+		      Soc_Aud_InterConnectionOutput_O06);
 
 	EnableAfe(true);
 }

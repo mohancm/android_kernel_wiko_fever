@@ -315,7 +315,7 @@ static void write_cmos_sensor(kal_uint32 addr, kal_uint32 para)
 
   
 
-static void set_dummy()
+static void set_dummy(void)
 {
     LOG_INF("dummyline = %d, dummypixels = %d \n", imgsensor.dummy_line, imgsensor.dummy_pixel);
 
@@ -328,7 +328,7 @@ static void set_dummy()
   
 }   /*  set_dummy  */
 
-static kal_uint32 return_sensor_id()
+static kal_uint32 return_sensor_id(void)
 {   
   write_cmos_sensor(0x0A02, 0x13);//specify OTP Page Add for read
 	write_cmos_sensor(0x0A00, 0x01);//Turn on OTP Read Mode
@@ -1253,7 +1253,7 @@ static void normal_video_setting(kal_uint16 currefps)    // VideoFullSizeSetting
 #endif
         
 }
-static void hs_video_setting()  // VideoHDSetting_120fps
+static void hs_video_setting(void)  // VideoHDSetting_120fps
 {
     LOG_INF("E\n  hs_Video  120fps ");
     //PLL setting 
@@ -1348,7 +1348,7 @@ static void hs_video_setting()  // VideoHDSetting_120fps
    write_cmos_sensor(0x0100, 0x01);// STREAM START
 }
 
-static void slim_video_setting()  // VideoHDSetting
+static void slim_video_setting(void)  // VideoHDSetting
 {
     LOG_INF("E\n  Slim_Video  30fps ");
     //PLL setting 

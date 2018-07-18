@@ -57,8 +57,7 @@
 #include "AudDrv_Clk.h"
 #include "AudDrv_Kernel.h"
 #include "mt_soc_afe_control.h"
-#include <mach/mt_clkmgr.h>
-#include <sound/mt_soc_audio.h>
+
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -114,48 +113,11 @@
 /* #include <asm/mach-types.h> */
 #include <linux/debugfs.h>
 #include "mt_soc_codec_63xx.h"
-#include <linux/pm_runtime.h>
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-#include <linux/mfd/arizona/registers.h>
-#include "../../codecs/florida.h"
-#include <linux/pm_runtime.h>
-#include <mt_gpio.h>
-#include <linux/input.h>
-#include <linux/mfd/arizona/core.h>
-#include <sound/tlv.h>
-#endif
-static int mt_soc_lowjitter_control = 0;
+static int mt_soc_lowjitter_control;
 static struct dentry *mt_sco_audio_debugfs;
-static struct input_dev *ez2ctrl_input_dev;
 #define DEBUG_FS_NAME "mtksocaudio"
 #define DEBUG_ANA_FS_NAME "mtksocanaaudio"
-
-#if defined(CONFIG_SND_SOC_FLORIDA)
-#define FLORIDA_PLAT_CLK_HZ	  26000000
-#define FLORIDA_MAX_SYSCLK_1  147456000  /*max sysclk for 4K family 49152000*/
-#define FLORIDA_MAX_SYSCLK_2  135475200  /*max sysclk for 11.025K family florida only 45158400s*/
-#define FLORIDA_RUN_MAINMIC 1
-#define KLASSEN_RUN_HEADSETMIC 2
-struct florida_drvdata {
-    unsigned int pll_freq;
-    int florida_hp_imp_compensate;
-    int florida_hp_impedance;
-    enum snd_soc_bias_level previous_bias_level;
-    struct wake_lock wake_lock; 
-	bool ear_mic;
-};
-static int florida_active;
-static void florida_ez2ctrl_cb(void);
-static int mtk_florida_late_probe(struct snd_soc_card *card);
-static int florida_check_clock_conditions(struct snd_soc_card *card);
-static const DECLARE_TLV_DB_SCALE(digital_vol, -6400, 50, 0);
-
-static struct snd_soc_codec *florida;
-extern void Sound_Speaker_Turnon(void);
-extern void Sound_Speaker_Turnoff(void);
-
-#endif
 
 static int mtmachine_startup(struct snd_pcm_substream *substream)
 {
@@ -881,616 +843,7 @@ static const struct file_operations mtaudio_ana_debug_ops = {
 	.read = mt_soc_ana_debug_read,
 };
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-#define GPIO_ARIZONA_EXT_SPKEN_PIN 90
 
-static const char *const spk_function[] = {"Off", "On"};
-static const struct soc_enum k5_snd_enum[] = {
-	SOC_ENUM_SINGLE_EXT(2, spk_function),
-};
-
-
-// wangwy6 add for audio para of india end
-void reconfig_gain_of_headphone_india(unsigned int meas);
-static int sIndia = 0;
-static int india_region_headphone_set(struct snd_kcontrol *kcontrol,
-                       struct snd_ctl_elem_value *ucontrol)
-{
-	sIndia = ucontrol->value.integer.value[0];
-       if(ucontrol->value.integer.value[0])
-       {
-       	    struct florida_drvdata *pdata = NULL;
-            WARN_ON(!florida);
-            if (!florida) return 0;
-            pdata = snd_soc_card_get_drvdata(florida->component.card);
-            reconfig_gain_of_headphone_india(pdata->florida_hp_impedance);
-       }
-
-        return 0;
-}
-
-static int india_region_headphone_get(struct snd_kcontrol *kcontrol,
-                       struct snd_ctl_elem_value *ucontrol)
-{
-        ucontrol->value.integer.value[0] = sIndia;
-        return 0;
-}
-// wangwy6 add for audio para of india end
-
-static int florida_set_spk(struct snd_kcontrol *kcontrol,
-		       struct snd_ctl_elem_value *ucontrol)
-{
-    if (gpio_get_value_cansleep(GPIO_ARIZONA_EXT_SPKEN_PIN) == ucontrol->value.integer.value[0])
-    {
-        printk("%s spk vdd already %s \n",__func__,ucontrol->value.integer.value[0] ? "On":"Off");
-        return 0;
-    }
-    printk("%s: set spk vdd %s\n", __func__,ucontrol->value.integer.value[0] ? "On":"Off");
-	gpio_set_value_cansleep(GPIO_ARIZONA_EXT_SPKEN_PIN, ucontrol->value.integer.value[0]);
-	return 1;
-}
-
-static int florida_get_spk(struct snd_kcontrol *kcontrol,
-		       struct snd_ctl_elem_value *ucontrol)
-{
-        ucontrol->value.integer.value[0] = gpio_get_value_cansleep(GPIO_ARIZONA_EXT_SPKEN_PIN);
-	    printk("%s spk vdd state %s \n",__func__,ucontrol->value.integer.value[0] ? "On":"Off");
-	    return 0;
-}
-struct hp_imp_gain_tab{
-	int min;           /* Minimum impedance */
-	int max;           /* Maximum impedance */
-	int gain; /* Register value to set for this measurement */
-};
-//wangwy6 add for audio para of inida
-static struct hp_imp_gain_tab florida_hp_gain_table_india[] = {
-	{   0,      10, 10},
-	{   11,     19, 14},
-	{   20,     36, 18},
-	{  37,     70,  22},
-	{  71,    250,   22},
-	{ 251, INT_MAX,  22},
-};
-// wangwy6 add for audio para of india
-static struct hp_imp_gain_tab florida_hp_gain_table[] = {
-	{   0,      10, -12},
-	{   11,     19, -8 },
-	{   20,     36, -6 },
-	{  37,     70,  -6 },
-	{  71,    250,   0 },
-	{ 251, INT_MAX,  0 },
-};
-void florida_set_hp_imp_compensate(int gain)
-{
-       struct florida_drvdata *pdata = NULL;
-	   WARN_ON(!florida);
-		if (!florida)
-		return;
-        printk("%s florida_hp_imp_compensate %d\n", __func__,gain);
-        pdata = snd_soc_card_get_drvdata(florida->component.card);    
-        pdata->florida_hp_imp_compensate = gain;
-}
-void k5_arizona_hpdet_cb(unsigned int meas)
-{
-	int i;  
-    printk("arizona %s enter meas = %d\n",__func__, meas);   
-	for (i = 0; i < ARRAY_SIZE(florida_hp_gain_table); i++) {
-		 if (meas < florida_hp_gain_table[i].min || meas > florida_hp_gain_table[i].max)
-			continue;
-		    printk("set florida=%d for %d ohms\n",florida_hp_gain_table[i].gain, meas);
-            florida_set_hp_imp_compensate(florida_hp_gain_table[i].gain);
-            break;
-	}
-	if(meas == 0)
-	{
-		florida_set_hp_imp_compensate(0);
-	}
-// wangwy6 add for audio para of india end
-       {
-       // this function is called when headset insert or remove
-       // anyway, do a meas backup here for futher use;
-       struct florida_drvdata *pdata = NULL;
-       WARN_ON(!florida);
-       if (!florida) return;
-       pdata = snd_soc_card_get_drvdata(florida->component.card);
-       pdata->florida_hp_impedance = meas;
-       }
-// wangwy6 add for audio para of india end
-}
-
-// wangwy6 add for audio para of india start
-void reconfig_gain_of_headphone_india(unsigned int meas)
-{
-        int i;
-        printk("%s, enter meas = %d\n",__func__, meas);
-        for (i = 0; i < ARRAY_SIZE(florida_hp_gain_table_india); i++) {
-            if (meas < florida_hp_gain_table_india[i].min || meas > florida_hp_gain_table_india[i].max)
-                 continue;
-            printk("set florida=%d for %d ohms\n",florida_hp_gain_table_india[i].gain, meas);
-            florida_set_hp_imp_compensate(florida_hp_gain_table_india[i].gain);
-            break;
-        }
-        if(meas == 0)
-        {
-                florida_set_hp_imp_compensate(0);
-        }
-}
-// wangwy6 add for audio para india end
-
-int florida_hp1_volume_get(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-	unsigned int reg2 = mc->rreg;
-	unsigned int shift = mc->shift;
-	unsigned int rshift = mc->rshift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-    WARN_ON(!florida);
-	if (!florida)
-		return -1;          
-	ucontrol->value.integer.value[0] =
-		(snd_soc_read(florida, reg) >> shift) & mask;
-	if (invert)
-		ucontrol->value.integer.value[0] =
-			max - ucontrol->value.integer.value[0];
-	if (snd_soc_volsw_is_stereo(mc)) {
-		if (reg == reg2)
-			ucontrol->value.integer.value[1] =
-				(snd_soc_read(florida, reg) >> rshift) & mask;
-		else
-			ucontrol->value.integer.value[1] =
-				(snd_soc_read(florida, reg2) >> shift) & mask;
-		if (invert)
-			ucontrol->value.integer.value[1] =
-				max - ucontrol->value.integer.value[1];
-	}
-	return 0;
-}
-static int florida_hp1_volume_put(struct snd_kcontrol *kcontrol,
-		       struct snd_ctl_elem_value *ucontrol)
-{
-	struct florida_drvdata *pdata = NULL;
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned int reg = mc->reg;
-        unsigned int reg2 = mc->rreg;
-	unsigned int shift = mc->shift;
-	int max = mc->max;
-	unsigned int mask = (1 << fls(max)) - 1;
-	unsigned int invert = mc->invert;
-	int err;
-	unsigned int val, val_mask;
-    WARN_ON(!florida);
-	if (!florida)
-		return -1;    
-        pdata = snd_soc_card_get_drvdata(florida->component.card);
-	val = (ucontrol->value.integer.value[0] & mask);
-	val += pdata->florida_hp_imp_compensate;
-	printk("florida->dev, SET GAIN %d according to impedance, moved %d step\n",
-			 val, pdata->florida_hp_imp_compensate);
-	if (invert)
-		val = max - val;
-	val_mask = mask << shift;
-	val = val << shift;
-	err = snd_soc_update_bits(florida, reg, val_mask, val);
-    err = snd_soc_update_bits(florida, reg2, val_mask, val);
-	return err;
-}
-static const struct snd_soc_dapm_widget florida_dapm_widgets[] = {
-	SND_SOC_DAPM_HP("Headphone", NULL),
-	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Int Mic", NULL),
-	SND_SOC_DAPM_SPK("Ext Spk", NULL),
-	SND_SOC_DAPM_MIC("Sec Mic", NULL),
-	SND_SOC_DAPM_MIC("ANC Mic", NULL),
-	SND_SOC_DAPM_SPK("DSP Virtual Out Pin",NULL),
-	SND_SOC_DAPM_SPK("DRC2 Signal Activity Pin",NULL),
-};
-static const struct snd_soc_dapm_route florida_audio_map[] = {
-	{"Headphone", NULL, "HPOUT1L"},
-	{"Headphone", NULL, "HPOUT1R"},
-	{"Ext Spk", NULL, "SPKOUTLP"},
-	{"Ext Spk", NULL, "SPKOUTLN"},
-	{"Ext Spk", NULL, "SPKOUTRP"},
-	{"Ext Spk", NULL, "SPKOUTRN"},
-	{"Headset Mic", NULL, "MICBIAS1"},
-	{"Headset Mic", NULL, "MICBIAS3"},
-	{"IN1R", NULL, "Headset Mic"},
-	{"Int Mic", NULL, "MICBIAS2"},
-	{"IN2L", NULL, "Int Mic"},
-	{"Sec Mic", NULL, "MICBIAS2"},
-	{"IN1L", NULL, "Sec Mic"},
-	{"ANC Mic", NULL, "MICBIAS2"},
-	{"IN2R", NULL, "ANC Mic"},
-	{"DSP Virtual Out Pin", NULL, "DSP Virtual Output"},
-	{"DRC2 Signal Activity Pin", NULL, "DRC2 Signal Activity"},
-};
-static const struct snd_kcontrol_new florida_mc_controls[] = {
-	SOC_DAPM_PIN_SWITCH("Headphone"),
-	SOC_DAPM_PIN_SWITCH("Headset Mic"),
-	SOC_DAPM_PIN_SWITCH("Int Mic"),
-	SOC_DAPM_PIN_SWITCH("Ext Spk"),
-	SOC_DAPM_PIN_SWITCH("Sec Mic"),
-	SOC_DAPM_PIN_SWITCH("ANC Mic"),
-	SOC_DAPM_PIN_SWITCH("DSP Virtual Out Pin"),
-	SOC_DAPM_PIN_SWITCH("DRC2 Signal Activity Pin"),
-	SOC_ENUM_EXT("Speaker VDD", k5_snd_enum[0], florida_get_spk,
-			florida_set_spk),
-	SOC_DOUBLE_R_EXT_TLV("Auto Gain HP Volume", ARIZONA_DAC_DIGITAL_VOLUME_1L,
-		 ARIZONA_DAC_DIGITAL_VOLUME_1R, ARIZONA_OUT1L_VOL_SHIFT,
-		 0xbf, 0, florida_hp1_volume_get, florida_hp1_volume_put, digital_vol),
-	SOC_ENUM_EXT("India Region Headphone", k5_snd_enum[0], india_region_headphone_get, india_region_headphone_set),
-};
-static int florida_set_bias_level(struct snd_soc_card *card,
-				struct snd_soc_dapm_context *dapm,
-				enum snd_soc_bias_level level)
-{
-	struct snd_soc_dai *codec_dai = card->rtd[0].codec_dai;
-	struct snd_soc_codec *codec = codec_dai->codec;
-	struct florida_drvdata *data = card->drvdata;
-	int ret;
-	if (!florida)
-		return 0;
-	if (dapm->dev != florida->dev)
-		return 0;
-    printk("%s: level=%d, pll=%d data->previous_bias_level=%d\n",__func__,level,data->pll_freq,data->previous_bias_level);
-	switch (level) {
-		case SND_SOC_BIAS_PREPARE:
-        	if (data->previous_bias_level != SND_SOC_BIAS_STANDBY)
-				break;
-			clk_monitor(1,1,0);
-			mdelay(5);
-			ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1_REFCLK,
-					ARIZONA_FLL_SRC_NONE, 0, 0);
-		if (ret < 0) {
-			pr_err("Failed to stop FLL: %d\n", ret);
-			return ret;
-		}
-		ret =snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-					ARIZONA_FLL_SRC_NONE, 0, 0);
-		ret = snd_soc_codec_set_sysclk(florida, ARIZONA_CLK_SYSCLK, ARIZONA_CLK_SRC_FLL1,
-            data->pll_freq, SND_SOC_CLOCK_IN);
-         if(ret < 0) {
-            dev_err(codec->dev, "Failed to set sysclk: %d, %d\n", data->pll_freq, ret);
-            return ret;
-         }
-		 ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-								ARIZONA_CLK_SRC_MCLK1, //TODO Check if clock from AP is connected to MCLK1
-								FLORIDA_PLAT_CLK_HZ,
-									(data->pll_freq));
-			if (ret != 0) {
-				printk("%s Failed to enable FLL1 with Ref Clock Loop: %d\n",__func__,ret); 	 
-				return ret;
-			}
-		florida_active=1;
-			break;
-	default:
-		break;
-	}
-	return 0;
-}
-static int florida_set_bias_level_post(struct snd_soc_card *card,
-				     struct snd_soc_dapm_context *dapm,
-				     enum snd_soc_bias_level level)
-{
-	struct snd_soc_dai *codec_dai = card->rtd[0].codec_dai;
-	struct snd_soc_codec *codec = codec_dai->codec;
-	struct florida_drvdata *data = card->drvdata;
-	int ret;
-	if (!florida)
-		return 0;
-	if (dapm->dev != florida->dev)
-		return 0;
-    printk("%s: level is %d data->previous_bias_level is %d, set fll to %d\n",__func__,level,data->previous_bias_level,data->pll_freq);
-	switch (level) {
-		case SND_SOC_BIAS_STANDBY:
-			if(data->previous_bias_level < SND_SOC_BIAS_PREPARE)
-				break;
-			ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1_REFCLK,
-									ARIZONA_FLL_SRC_NONE, 0, 0);
-			if (ret < 0) {
-				pr_err("Failed to stop FLL: %d\n", ret);
-				return ret;
-			}
-		ret =snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-					ARIZONA_FLL_SRC_NONE, 0, 0);
-			if(ret < 0) {
-				dev_err(codec->dev, "Failed to set sysclk: %d, %d\n", data->pll_freq, ret);
-				return ret;
-			}
-			florida_active=0;
-			clk_monitor(1,0,0);
-			mdelay(1);
-			break;
-	default:
-		break;
-	}
-	data->previous_bias_level = level;
-	return 0;
-}
-static const struct snd_soc_pcm_runtime *k5_find_dai_link(
-					const struct snd_soc_card *card,
-					const char *dai_link_name)
-{
-	int i;
-	for (i = 0; i < card->num_rtd; ++i)
-		if (strcmp(card->rtd[i].dai_link->name, dai_link_name) == 0)
-			return &card->rtd[i];
-	return NULL;
-}
-struct florida_drvdata drvdata =
-{
-    .pll_freq = FLORIDA_MAX_SYSCLK_1,
-};
-
-static int florida_init(struct snd_soc_pcm_runtime *runtime)
-{
-	int ret;
-	struct snd_soc_codec *codec = runtime->codec;
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	struct snd_soc_card *card = runtime->card;
-	printk("Enter:%s\n", __func__);
-
-	if (GPIO_ARIZONA_EXT_SPKEN_PIN >= 0) {
-		ret = gpio_request_one(GPIO_ARIZONA_EXT_SPKEN_PIN, GPIOF_DIR_OUT | GPIOF_INIT_LOW,
-				"ext-spk-enable");
-		if (ret != 0) {
-			pr_err("%s: failed to request ext spkena gpio %d\n", __func__, ret);
-			return ret;
-		}
-	}
-
-	florida = codec;
-	florida_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
-	card->dapm.idle_bias_off = true;
-	ret = snd_soc_add_card_controls(card, florida_mc_controls,
-					ARRAY_SIZE(florida_mc_controls));
-	if (ret) {
-		printk("unable to add card controls\n");
-		return ret;
-	}
-	florida_active=0;
-	snd_soc_dapm_sync(dapm);
-	return ret;
-}
-
-bool florida_power_status = false;
-
-int florida_powerdown_prepare(struct device *dev)
-{
-    struct snd_soc_card *card =dev_get_drvdata(dev);
-	struct florida_drvdata *data = card->drvdata;
-    int ret;
-	printk("Enter:%s pll_out=%d\n", __func__,data->pll_freq );
-	ret = florida_check_clock_conditions(card); 
-	if (ret == KLASSEN_RUN_HEADSETMIC) {
-             printk("%s disable clk",__func__);
-            florida_power_status = true;
-            ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1_REFCLK,
-                ARIZONA_FLL_SRC_NONE, 0, 0);
-            if (ret < 0) {
-                pr_err("Failed to stop FLL: %d\n", ret);
-                return ret;
-            }
-            ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-                ARIZONA_FLL_SRC_NONE, 0, 0);
-            if(ret < 0) {
-                pr_err("%s arizona Failed to set sysclk ret = %d\n",__func__, ret);
-                return ret;
-            }
-			clk_monitor(1,0,0);
-      }else if (ret == FLORIDA_RUN_MAINMIC) {
-                printk("%s set mclk2\n",__func__);
-		           ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-			            ARIZONA_CLK_SRC_MCLK2,
-			            32000, data->pll_freq);
-		  		if (ret != 0) {
-		   			 printk("Failed to switch to 32K clock: %d\n", ret);
-		    		 return ret;
-	             }
-			clk_monitor(1,0,0);
-	  }
-       return 0;
-}
-int florida_powerdown_complete(struct device *dev)
-{
-	struct snd_soc_card *card =dev_get_drvdata(dev);
-	struct florida_drvdata *data = card->drvdata;
-    int ret;
-     ret = florida_check_clock_conditions(card);  
-	 printk("%s enter ret %d \n",__func__,ret);
-      if ((ret == KLASSEN_RUN_HEADSETMIC) || (florida_power_status == true)) {
-              printk("%s reenable clk",__func__);
-             florida_power_status = false;
-			 clk_monitor(1,1,0);
-			 mdelay(5);
-             snd_soc_codec_set_pll(florida, FLORIDA_FLL1_REFCLK,
-					    ARIZONA_FLL_SRC_NONE, 0, 0);
-             snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-						ARIZONA_FLL_SRC_NONE, 0, 0);
-             ret = snd_soc_codec_set_sysclk( florida, ARIZONA_CLK_SYSCLK,
-						  ARIZONA_CLK_SRC_FLL1,
-						  data->pll_freq, 
-						  SND_SOC_CLOCK_IN);
-			ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-								ARIZONA_CLK_SRC_MCLK1, 
-								FLORIDA_PLAT_CLK_HZ,
-									(data->pll_freq));
-            if (ret != 0) {
-                printk("arizona Failed to start SYSCLK: %d\n", ret);
-	  		  }
-		}
-			else if (ret == FLORIDA_RUN_MAINMIC) {
-        	/* if CODEC is running then switch to the 26M clock */
-                pr_info("%s set mclk1\n",__func__);
-			 /*enable 26Mhz clock */
-			    clk_monitor(1,1,0);
-			    mdelay(5);
-			
-				ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-						ARIZONA_CLK_SRC_MCLK1,
-						FLORIDA_PLAT_CLK_HZ, data->pll_freq);
-				if (ret != 0) {
-			    	printk("Failed to switch to MCLK1 clock: %d\n", ret);
-		        }
-	    }
-    return 0; 
-}
-static unsigned int Florida_supported_high_sample_rates[] =
-{
-	16000,
-	44100, 
-	48000,
-	192000, 
-};
-static struct snd_pcm_hw_constraint_list florida_constraints_sample_rates =
-{
-	.count = ARRAY_SIZE(Florida_supported_high_sample_rates),
-	.list = Florida_supported_high_sample_rates,
-	.mask = 0,
-};
-static int florida_aif1_startup(struct snd_pcm_substream *substream)
-{
-	int ret ; 
-	ret= snd_pcm_hw_constraint_list(substream->runtime, 0,
-							SNDRV_PCM_HW_PARAM_RATE,
-							&florida_constraints_sample_rates);
-	printk("Enter:%s  ret=%d\n", __func__,ret); 
-	return ret;  
-}
-static int florida_aif1_hw_params(struct snd_pcm_substream *substream,
-			     struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-//	struct snd_soc_codec *codec = codec_dai->codec;
-	struct snd_soc_card *card = codec_dai->card;
-	struct florida_drvdata *data = card->drvdata;
-	unsigned int pll_out;
-	int ret = 0;
-	printk("%s arizona aif1_hw start  \n",__func__);
-	pll_out = (params_rate(params) % 4000 == 0) ? (FLORIDA_MAX_SYSCLK_1) : (FLORIDA_MAX_SYSCLK_2);
-	if (data->pll_freq != pll_out) {
-	    data->pll_freq = pll_out;
-		 snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-					ARIZONA_FLL_SRC_NONE, 0, 0);
-	    ret = snd_soc_codec_set_sysclk(florida, ARIZONA_CLK_SYSCLK, ARIZONA_CLK_SRC_FLL1,
-				data->pll_freq, SND_SOC_CLOCK_IN);
-		if (ret < 0) {
-			printk("arizona Failed to set sysclk: %d, %d\n", pll_out, ret);
-			return ret;
-		}
-		ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-			   ARIZONA_CLK_SRC_MCLK1, FLORIDA_PLAT_CLK_HZ, data->pll_freq);
-		if (ret < 0) {
-			printk("arizona Failed to set FLL1: %d, %d\n", pll_out, ret);
-			return ret;
-		}
-	}
-	printk("%s arizona aif1_hw done  \n",__func__);
-	return ret;
-}
-static int florida_aif_free(struct snd_pcm_substream *substream) 
-{ 
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_codec *codec = codec_dai->codec;
-	int ret;	   
-	printk("%s arizona aif1_free \n",__func__);
-	ret = snd_soc_codec_set_sysclk(codec, ARIZONA_CLK_SYSCLK, ARIZONA_CLK_SRC_FLL1,
-							0, SND_SOC_CLOCK_IN);
-	return ret;
- } 
-static struct snd_soc_ops byt_aif1_ops = {
-	.startup = florida_aif1_startup,
-	.hw_params = florida_aif1_hw_params,
-	.hw_free = florida_aif_free, 
-};
-static unsigned int Florida_supported_high_sample_rates_record[] =
-{
-	48000, 
-};
-static struct snd_pcm_hw_constraint_list florida_constraints_sample_rates_record =
-{
-	.count = ARRAY_SIZE(Florida_supported_high_sample_rates_record),
-	.list = Florida_supported_high_sample_rates_record,
-	.mask = 0,
-};
-static int florida_aif2_startup(struct snd_pcm_substream *substream)
-{
-	int ret ; 
-	ret= snd_pcm_hw_constraint_list(substream->runtime, 0,
-							SNDRV_PCM_HW_PARAM_RATE,
-							&florida_constraints_sample_rates);
-	printk("Enter:%s  ret=%d\n", __func__,ret); 
-	return ret;  
-}
-static int florida_aif2_record_startup(struct snd_pcm_substream *substream)
-{
-	int ret ; 
-	printk("Enter:%s  substream->runtime->rate=%d\n", __func__,substream->runtime->rate);
-	ret= snd_pcm_hw_constraint_list(substream->runtime, 0,
-							SNDRV_PCM_HW_PARAM_RATE,
-							&florida_constraints_sample_rates_record);
-	printk("Enter:%s  ret=%d\n", __func__,ret); 
-	return ret;  
-}
-static int florida_aif2_hw_params(struct snd_pcm_substream *substream,
-			     struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-//	struct snd_soc_codec *codec = codec_dai->codec;
-	struct snd_soc_card *card = codec_dai->card;
-	struct florida_drvdata *data = card->drvdata;
-	unsigned int pll_out;
-	int ret = 0;
-	pll_out = (params_rate(params) % 4000 == 0) ? (FLORIDA_MAX_SYSCLK_1) : (FLORIDA_MAX_SYSCLK_2);
-	if (data->pll_freq != pll_out) {
-	    data->pll_freq = pll_out;
-		 snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-					ARIZONA_FLL_SRC_NONE, 0, 0);
-	    ret = snd_soc_codec_set_sysclk(florida, ARIZONA_CLK_SYSCLK, ARIZONA_CLK_SRC_FLL1,
-				data->pll_freq, SND_SOC_CLOCK_IN);
-		if (ret < 0) {
-			printk("arizona Failed to set sysclk: %d, %d\n", pll_out, ret);
-			return ret;
-		}
-		ret = snd_soc_codec_set_pll(florida, FLORIDA_FLL1,
-			   ARIZONA_CLK_SRC_MCLK1, FLORIDA_PLAT_CLK_HZ, data->pll_freq);
-		if (ret < 0) {
-			printk("arizona Failed to set FLL1: %d, %d\n", pll_out, ret);
-			return ret;
-		}
-	}
-	return ret;
-}
-static int florida_aif2_free(struct snd_pcm_substream *substream) 
-{ 
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_codec *codec = codec_dai->codec;
-	int ret;	   
-	printk("%s arizona aif2_free \n",__func__);
-	ret = snd_soc_codec_set_sysclk(codec, ARIZONA_CLK_SYSCLK, ARIZONA_CLK_SRC_FLL1,
-							0, SND_SOC_CLOCK_IN);
-	return ret;
-}
-static struct snd_soc_ops byt_aif2_record_ops = {
-	.startup = florida_aif2_record_startup,
-	.hw_params = florida_aif2_hw_params,
-	.hw_free = florida_aif2_free, 
-};
-#endif  /* CONFIG_SND_SOC_FLORIDA */
-static struct snd_soc_ops byt_aif2_ops = {
-	.startup = florida_aif2_startup,
-	.hw_params = florida_aif2_hw_params,
-	.hw_free = florida_aif_free, 
-};
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	/* FrontEnd DAI Links */
@@ -1509,42 +862,20 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_UL1_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_UL1DAI_NAME,
 	 .platform_name = MT_SOC_UL1_PCM,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_RXDAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "Voice_MD1",
 	 .stream_name = MT_SOC_VOICE_MD1_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_VOICE_MD1_NAME,
 	 .platform_name = MT_SOC_VOICE_MD1,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_VOICE_MD1DAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "HDMI_OUT",
@@ -1561,21 +892,10 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_ULDLLOOPBACK_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_ULDLLOOPBACK_NAME,
 	 .platform_name = MT_SOC_ULDLLOOPBACK_PCM,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_ULDLLOOPBACK_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "I2S0OUTPUT",
@@ -1592,21 +912,10 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_MRGRX_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_MRGRX_NAME,
 	 .platform_name = MT_SOC_MRGRX_PCM,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_MRGRX_DAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "MRGRXCAPTURE",
@@ -1623,21 +932,10 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_I2SDL1_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_I2S0DL1_NAME,
 	 .platform_name = MT_SOC_I2S0DL1_PCM,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ignore_pmdown_time = 1,
-        .ops = &byt_aif1_ops,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_I2S0TXDAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "DL1AWBCAPTURE",
@@ -1714,21 +1012,10 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_I2S0AWB_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_I2S0AWBDAI_NAME,
 	 .platform_name = MT_SOC_I2S0_AWB_PCM,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-		.codec_dai_name = "florida-aif2",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif2_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_I2S0AWB_NAME,
 	 .codec_name = MT_SOC_CODEC_DUMMY_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif 
 	 },
 
 	{
@@ -1736,21 +1023,10 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_VOICE_MD2_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_VOICE_MD2_NAME,
 	 .platform_name = MT_SOC_VOICE_MD2,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_VOICE_MD2DAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "PLATOFRM_CONTROL",
@@ -1787,21 +1063,10 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_FM_I2S_PLAYBACK_STREAM_NAME,
 	 .cpu_dai_name = MT_SOC_FM_I2S_NAME,
 	 .platform_name = MT_SOC_FM_I2S_PCM,
-#if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-#else
 	 .codec_dai_name = MT_SOC_CODEC_FM_I2S_DAI_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-#endif
 	 },
 	{
 	 .name = "FM_I2S_RX_Capture",
@@ -1829,54 +1094,11 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .stream_name = MT_SOC_DL2_STREAM_NAME,
 	 .cpu_dai_name   = MT_SOC_DL2DAI_NAME,
 	 .platform_name  = MT_SOC_DL2_PCM,
-	 #if defined(CONFIG_SND_SOC_FLORIDA)  
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-          #else
 	 .codec_dai_name = MT_SOC_CODEC_TXDAI2_NAME,
 	 .codec_name = MT_SOC_CODEC_NAME,
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
-	 #endif
 	 },
-#if defined(CONFIG_SND_SOC_FLORIDA)
-	{
-        .name = "mtk-florida-i2s",
-        .stream_name = MT_SOC_DUMMY_I2S_STREAM_PCM,
-        .cpu_dai_name   = MT_SOC_DUMMY_I2S_DAI_NAME,
-       // .platform_name  = MT_SOC_DUMMY_I2S_PCM,
-        .codec_dai_name = "florida-aif1",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .init = florida_init,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-        .ignore_pmdown_time = 1,
-       },
-       {
-        .name = "mtk-florida-i2s-record",
-        .stream_name = MT_SOC_DUMMY_I2S_RECORD_STREAM_PCM,
-        .cpu_dai_name   = MT_SOC_DUMMY_I2S_RECORD_DAI_NAME,
-        //.platform_name  = MT_SOC_DUMMY_I2S_PCM,
-        .codec_dai_name = "florida-aif2",
-        .codec_name = "florida-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .ignore_suspend = 1,
-        .ops = &byt_aif2_record_ops,
-        .ignore_pmdown_time = 1,
-       },   
-
-#endif
 };
 
 static const char const *I2S_low_jittermode[] = { "Off", "On" };
@@ -1913,146 +1135,32 @@ static struct snd_soc_card snd_soc_card_mt = {
 	.num_links = ARRAY_SIZE(mt_soc_dai_common),
 	.controls = mt_soc_controls,
 	.num_controls = ARRAY_SIZE(mt_soc_controls),
-#if defined(CONFIG_SND_SOC_FLORIDA)   
-	.late_probe = mtk_florida_late_probe,
-    .set_bias_level = florida_set_bias_level,
-    .set_bias_level_post = florida_set_bias_level_post,
-	.dapm_widgets = florida_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(florida_dapm_widgets),	
-    .dapm_routes = florida_audio_map,
-	.num_dapm_routes = ARRAY_SIZE(florida_audio_map),	
-	.drvdata = & drvdata,
-#endif	
 };
 
-#if 0
 static struct platform_device *mt_snd_device;
-#endif
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-void k5_arizona_micd_cb(bool mic)
+static int __init mt_soc_snd_init(void)
 {
-       struct florida_drvdata *pdata = NULL;
-       WARN_ON(!florida);
-       if (!florida)
-               return;
-        pdata = snd_soc_card_get_drvdata(florida->component.card);
-        pdata->ear_mic = mic;
-        printk("%s: ear_mic = %d\n", __func__, pdata->ear_mic);
-}
-static int florida_check_clock_conditions(struct snd_soc_card *card)
-{
-       struct florida_drvdata *pdata = snd_soc_card_get_drvdata(card);
-       int mainmic_state = 0;
-#ifdef CONFIG_MFD_FLORIDA
-       mainmic_state = snd_soc_dapm_get_pin_status(&card->dapm, "Int Mic");
-#endif
-       printk("%s: florida->component.active=%d \n",__func__,florida->component.active);
-       if (!florida->component.active && mainmic_state) {
-               printk("%s: MAIN_MIC is running without input stream\n",__func__);
-               return FLORIDA_RUN_MAINMIC;
-       }
-       if (!florida->component.active && pdata->ear_mic && !mainmic_state) {
-               printk("%s: EAR_MIC is running without input stream\n",__func__);
-               return KLASSEN_RUN_HEADSETMIC;
-       }
-       return 0;
-}
-static void florida_ez2ctrl_cb(void)
-{
+	int ret;
 	struct snd_soc_card *card = &snd_soc_card_mt;
-	struct florida_drvdata *data = card->drvdata;
-	printk("==============  The Trigger had happened =================\n");
-	wake_lock_timeout(&data->wake_lock, 5000);
-	if (ez2ctrl_input_dev) {
-		input_report_key(ez2ctrl_input_dev, KEY_VOICE_WAKEUP, 1);
-		input_report_key(ez2ctrl_input_dev, KEY_VOICE_WAKEUP, 0);
-		input_sync(ez2ctrl_input_dev);
-	}
-}
-static int mtk_florida_late_probe(struct snd_soc_card *card)
-{
-	struct florida_drvdata *data = card->drvdata;
-	const struct snd_soc_pcm_runtime *rtd;
-	struct snd_soc_codec *codec = NULL;
-	rtd = k5_find_dai_link(card, "mtk-florida-i2s-record");
-	if (rtd==NULL)
-	{
-	 printk("Failed to find florida device");
-	 return 0;
-	}
-	codec = rtd->codec_dai->codec;
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Int Mic");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Sec Mic");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "ANC Mic");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Mic");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Headphone");
-	snd_soc_dapm_sync(&card->dapm);
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "IN4L");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "HPOUT2R");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "AIF1 Playback");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "AIF1 Capture");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "DSP Virtual Out Pin");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "DRC2 Signal Activity Pin");
-	snd_soc_dapm_sync(&codec->dapm);;
-	wake_lock_init(&data->wake_lock, WAKE_LOCK_SUSPEND,
-				"k5-voicewakeup");
-	ez2ctrl_input_dev = input_allocate_device();
-	if (!ez2ctrl_input_dev) {
-		printk("Failed to allocate Ez2Control input device");
-	} else {
-		ez2ctrl_input_dev->evbit[0] = BIT_MASK(EV_KEY);
-		ez2ctrl_input_dev->keybit[BIT_WORD(KEY_VOICE_WAKEUP)] = BIT_MASK(KEY_VOICE_WAKEUP);
-		ez2ctrl_input_dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
-		ez2ctrl_input_dev->name = "voice-wakeup";
-		if (input_register_device(ez2ctrl_input_dev) != 0) {
-			printk("ez2ctrl input device register fail\n");
-			input_free_device(ez2ctrl_input_dev);
-			ez2ctrl_input_dev = NULL;
-		} else {
-			arizona_set_ez2ctrl_cb(florida,florida_ez2ctrl_cb);
-		}
-	}
-	arizona_set_hpdet_cb(codec, k5_arizona_hpdet_cb);
-	arizona_set_micd_cb(codec, k5_arizona_micd_cb);
-	printk("arizona success to register device");
-    return 0;
-}
-#endif
-static int mt_soc_snd_init(struct platform_device *pdev)
-{
-	int ret=0;
-	struct snd_soc_card *card = &snd_soc_card_mt;
-         printk("arizona mt_soc_snd_init card addr = %p \n", card);
 
-	card->dev = &pdev->dev;
-	platform_set_drvdata(pdev, card);
-	ret = snd_soc_register_card(card);
-	if (ret) {
-		pr_debug("arizona snd_soc_register_card failed %d\n", ret);
-	}
-#if 0 /*move sound card register to register card */
+	pr_debug("mt_soc_snd_init card addr = %p\n", card);
+
 	mt_snd_device = platform_device_alloc("soc-audio", -1);
-    if (!mt_snd_device)
-    {
-        printk("arizona mt6589_probe  platform_device_alloc fail\n");
+	if (!mt_snd_device) {
+		pr_err("mt6589_probe  platform_device_alloc fail\n");
 		return -ENOMEM;
 	}
-	card->dev = &mt_snd_device->dev;
 	platform_set_drvdata(mt_snd_device, &snd_soc_card_mt);
 	ret = platform_device_add(mt_snd_device);
 
-    if (ret != 0)
-    {
-        printk("arizona mt_soc_snd_init goto put_device fail\n");
+	if (ret != 0) {
+		pr_err("mt_soc_snd_init goto put_device fail\n");
 		goto put_device;
 	}
-#endif
 
-#if 0
-    printk("mt_soc_snd_init dai_link = %p \n", snd_soc_card_mt.dai_link);
-#endif
+	pr_debug("mt_soc_snd_init dai_link = %p\n", snd_soc_card_mt.dai_link);
+
 	/* create debug file */
 	mt_sco_audio_debugfs = debugfs_create_file(DEBUG_FS_NAME,
 						   S_IFREG | S_IRUGO, NULL, (void *)DEBUG_FS_NAME,
@@ -2065,58 +1173,19 @@ static int mt_soc_snd_init(struct platform_device *pdev)
 						   (void *)DEBUG_ANA_FS_NAME,
 						   &mtaudio_ana_debug_ops);
 
-	return ret;
-#if 0
+	return 0;
 put_device:
 	platform_device_put(mt_snd_device);
 	return ret;
-#endif
+
 }
 
-static int mt_soc_snd_exit(struct platform_device *pdev)
+static void __exit mt_soc_snd_exit(void)
 {
-	int ret=0;
-    	snd_soc_unregister_card(&snd_soc_card_mt);
-	return ret;
+	platform_device_unregister(mt_snd_device);
 }
-
-const struct dev_pm_ops florida_pm_ops = {
-       .suspend = snd_soc_suspend,
-       .resume = snd_soc_resume,
-       .freeze = snd_soc_suspend,
-       .thaw = snd_soc_resume,
-       .poweroff = snd_soc_poweroff,
-       .restore = snd_soc_resume,
-       .suspend_noirq = florida_powerdown_prepare,
-       .resume_noirq = florida_powerdown_complete,
-};
-static struct platform_driver florida_sound_card = {
-	.driver = {
-		.name = "mt-snd-card",
-		.owner = THIS_MODULE,
-		.pm = &florida_pm_ops,
-	},
-	.probe = mt_soc_snd_init,
-	.remove = mt_soc_snd_exit,
-};
-static int __init florida_sound_card_init(void)
-{
- 	printk("arizona florida_sound_card_init \n");
-	return platform_driver_register(&florida_sound_card);
-}
-static void __exit florida_sound_card_exit(void)
-{
-	struct snd_soc_card *card = &snd_soc_card_mt;
-	struct florida_drvdata *data = card->drvdata;
-	wake_lock_destroy(&data->wake_lock);
-	platform_driver_unregister(&florida_sound_card);
-}
-#if defined(CONFIG_SND_SOC_FLORIDA)
-late_initcall(florida_sound_card_init);
-#else
-//module_init(mt_soc_snd_init);
-#endif
-module_exit(florida_sound_card_exit);
+module_init(mt_soc_snd_init);
+module_exit(mt_soc_snd_exit);
 
 /* Module information */
 MODULE_AUTHOR("ChiPeng <chipeng.chang@mediatek.com>");

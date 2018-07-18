@@ -2,7 +2,6 @@
 #define __EXTD_DRV_LOG_H__
 
 #include <linux/printk.h>
-#include "ddp_debug.h"
 
 /* HDMI log functions*/
 #define HDMI_LOG(fmt, arg...)	pr_debug("[EXTD-HDMI]:"fmt, ##arg)
@@ -20,33 +19,14 @@
 #define MULTI_COTRL_FUNC()		pr_debug("[EXTD-MULTI]:%s\n", __func__)
 
 /*external display log functions*/
-#define EXT_DISP_LOG(fmt, arg...)  \
-		do {	\
-			if (g_mobilelog) \
-				pr_debug("[EXTD]:"fmt, ##arg); \
-		} while (0)
-
+#define EXT_DISP_LOG(fmt, arg...)	pr_debug("[EXTD]:"fmt, ##arg)
 #define EXT_DISP_ERR(fmt, arg...)	pr_err("[EXTD]:"fmt, ##arg)
-#define EXT_DISP_FUNC()  \
-	do {	\
-		if (g_mobilelog) \
-			pr_debug("[EXTD]:%s\n", __func__); \
-	} while (0)
-
+#define EXT_DISP_FUNC()			pr_debug("[EXTD]:%s\n", __func__)
 
 /*external display mgr log functions*/
-#define EXT_MGR_LOG(fmt, arg...)  \
-		do {	\
-			if (g_mobilelog) \
-				pr_debug("[EXTD-MGR]:"fmt, ##arg); \
-		} while (0)
-
+#define EXT_MGR_LOG(fmt, arg...)	pr_debug("[EXTD-MGR]:"fmt, ##arg)
 #define EXT_MGR_ERR(fmt, arg...)	pr_err("[EXTD-MGR]:"fmt, ##arg)
-#define EXT_MGR_FUNC()  \
-		do {	\
-			if (g_mobilelog) \
-				pr_debug("[EXTD-MGR]:%s\n", __func__); \
-		} while (0)
+#define EXT_MGR_FUNC()			pr_debug("[EXTD-MGR]:%s\n", __func__)
 
 /*external display - factory log functions*/
 #define EXTD_FACTORY_LOG(fmt, arg...)	pr_debug("[EXTD]:"fmt, ##arg)

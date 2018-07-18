@@ -2181,15 +2181,12 @@ int regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 
 	map->lock(map->lock_arg);
 
-#ifndef CONFIG_SND_SOC_FLORIDA /* k5 wm8281,move the block read from MTK platform temp */
 	if (regmap_volatile_range(map, reg, val_count) || map->cache_bypass ||
 	    map->cache_type == REGCACHE_NONE) {
 		/* Physical block read if there's no cache involved */
 		ret = _regmap_raw_read(map, reg, val, val_len);
 
-	} else
-#endif /*CONFIG_SND_SOC_FLORIDA*/
-        {
+	} else {
 		/* Otherwise go word by word for the cache; should be low
 		 * cost as we expect to hit the cache.
 		 */

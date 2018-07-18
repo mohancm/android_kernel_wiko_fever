@@ -103,25 +103,13 @@ static struct snd_pcm_hardware mtk_pcm_dl2_hardware = {
 	.fifo_size = 0,
 };
 
-static AudioDigtalI2S *mAudioDigitalI2S = NULL;
-static void ConfigAdcI2S(struct snd_pcm_substream *substream)
-{
-    mAudioDigitalI2S->mLR_SWAP = Soc_Aud_LR_SWAP_NO_SWAP;
-    mAudioDigitalI2S->mBuffer_Update_word = 8;
-    mAudioDigitalI2S->mFpga_bit_test = 0;
-    mAudioDigitalI2S->mFpga_bit = 0;
-    mAudioDigitalI2S->mloopback = 0;
-    mAudioDigitalI2S->mINV_LRCK = Soc_Aud_INV_LRCK_NO_INVERSE;
-    mAudioDigitalI2S->mI2S_FMT = Soc_Aud_I2S_FORMAT_I2S;
-    mAudioDigitalI2S->mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_32BITS; //Soc_Aud_I2S_WLEN_WLEN_16BITS;
-    mAudioDigitalI2S->mI2S_SAMPLERATE = (substream->runtime->rate);
-}
 static int mtk_pcm_dl2_stop(struct snd_pcm_substream *substream)
 {
 	pr_warn("%s\n", __func__);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, false);
 
-	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE);
+	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, 0);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, false);
 
 	/* here start digital part */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I07,
@@ -290,18 +278,9 @@ static int mtk_soc_pcm_dl2_close(struct snd_pcm_substream *substream)
 
 	if (mPrepareDone == true) {
 		/* stop DAC output */
-#if defined(CONFIG_SND_SOC_FLORIDA)
-		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
-		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == false)
-		{
-		   SetI2SAdcEnable(false);
-		   SetI2SDacEnable(false);
-		}
-#else
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
 		if (GetI2SDacEnable() == false)
 			SetI2SDacEnable(false);
-#endif
 
 		RemoveMemifSubStream(Soc_Aud_Digital_Block_MEM_DL2, substream);
 
@@ -324,7 +303,6 @@ static int mtk_pcm_dl2_prepare(struct snd_pcm_substream *substream)
 {
 	bool mI2SWLen = Soc_Aud_I2S_WLEN_WLEN_16BITS;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	uint32 u32AudioI2S = 0;
 
 	if (mPrepareDone == false) {
 		pr_warn
@@ -335,17 +313,22 @@ static int mtk_pcm_dl2_prepare(struct snd_pcm_substream *substream)
 		if (runtime->format == SNDRV_PCM_FORMAT_S32_LE ||
 		    runtime->format == SNDRV_PCM_FORMAT_U32_LE) {
 			/* not support 24bit +++ */
-			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2, AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
-			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_VUL, AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA); ////set UL bitwidth
-			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT, Soc_Aud_InterConnectionOutput_O03);
-			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT, Soc_Aud_InterConnectionOutput_O04);
+			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2,
+						     AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
+			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT,
+						  Soc_Aud_InterConnectionOutput_O03);
+			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT,
+						  Soc_Aud_InterConnectionOutput_O04);
 			/* not support 24bit --- */
 			mI2SWLen = Soc_Aud_I2S_WLEN_WLEN_32BITS;
 		} else {
 			/* not support 24bit +++ */
-			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2, AFE_WLEN_16_BIT);
-			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT, Soc_Aud_InterConnectionOutput_O03);
-			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT, Soc_Aud_InterConnectionOutput_O04);
+			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2,
+						     AFE_WLEN_16_BIT);
+			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT,
+						  Soc_Aud_InterConnectionOutput_O03);
+			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT,
+						  Soc_Aud_InterConnectionOutput_O04);
 			/* not support 24bit --- */
 			mI2SWLen = Soc_Aud_I2S_WLEN_WLEN_16BITS;
 		}
@@ -353,59 +336,6 @@ static int mtk_pcm_dl2_prepare(struct snd_pcm_substream *substream)
 		SetSampleRate(Soc_Aud_Digital_Block_MEM_I2S, runtime->rate);
 
 		/* start I2S DAC out */
-#if defined(CONFIG_SND_SOC_FLORIDA)
-        // I2S out Setting
-        u32AudioI2S = SampleRateTransform(runtime->rate) << 8;
-        u32AudioI2S |= Soc_Aud_I2S_FORMAT_I2S << 3; // us3 I2s format
-        u32AudioI2S |= Soc_Aud_I2S_WLEN_WLEN_32BITS << 1; //32bit
-
-            // here to open APLL
-            //u32AudioI2S |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode,set below,no need here
-
-        if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_2) == false)
-        {
-            SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_2, true);
-            //Afe_Set_Reg(AFE_I2S_CON, Audio_I2S_Dac | 0x1, MASK_ALL); //6752 TODO: fix fm playback then mp3, i2s_con is misconfigured...
-            Afe_Set_Reg(AFE_I2S_CON3, u32AudioI2S | 1, AFE_MASK_ALL);
-        }
-        else
-        {
-            SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_2, true);
-        }
-
-		if((GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == false))
-		{
-			Afe_Set_Reg(AUDIO_TOP_CON1, 0x4,  0x4);  // I2S1/I2S2 SOFT_Reset Hi
-			Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 5)|(0x1 << 6),	(0x1 << 5)|(0x1 << 6)); // Sets to 1 to gated I2S1/2 engine clock
-			ConfigAdcI2S(substream);
-			SetI2SAdcIn(mAudioDigitalI2S);
-			{
-				// I2S1 out Setting
-				uint32 u32AudioI2S = 0, MclkDiv1 = 0, MclkDiv2 = 0;
-	
-				u32AudioI2S = SampleRateTransform(substream->runtime->rate) << 8;
-				u32AudioI2S |= Soc_Aud_I2S_FORMAT_I2S << 3; // us3 I2s format
-				u32AudioI2S |= Soc_Aud_I2S_WLEN_WLEN_32BITS << 1; //32bit  
-				u32AudioI2S |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode
-	
-				Afe_Set_Reg(AFE_I2S_CON1, u32AudioI2S, 0xFFFFFFFE);
-
-				MclkDiv1 = SetCLkMclk(Soc_Aud_I2S1, substream->runtime->rate); //select I2S
-				SetCLkBclk(MclkDiv1,  substream->runtime->rate, substream->runtime->channels, Soc_Aud_I2S_WLEN_WLEN_32BITS);  
-	
-				MclkDiv2 = SetCLkMclk(Soc_Aud_I2S2, substream->runtime->rate); //select I2S
-				SetCLkBclk(MclkDiv2,  substream->runtime->rate, 2, Soc_Aud_I2S_WLEN_WLEN_32BITS);
-			}
-			Afe_Set_Reg(AUDIO_TOP_CON1, (0x0 << 5)|(0x0 << 6),	(0x1 << 5)|(0x1 << 6));
-			udelay(200);
-			Afe_Set_Reg(AUDIO_TOP_CON1, 0x0,  0x4);  // // I2S1/I2S2 SOFT_Reset Lo
-	
-			SetI2SAdcEnable(true);
-			SetI2SDacEnable(true);
-		}
-		//SetI2SDacOut(substream->runtime->rate, false, mI2SWLen);
-		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
-#else
 		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == false) {
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
 			SetI2SDacOut(substream->runtime->rate, false, mI2SWLen);
@@ -413,7 +343,9 @@ static int mtk_pcm_dl2_prepare(struct snd_pcm_substream *substream)
 		} else {
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
 		}
-#endif
+		/* here to set interrupt_distributor */
+		SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->period_size);
+		SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->rate);
 
 		EnableAfe(true);
 		mPrepareDone = true;
@@ -442,16 +374,14 @@ static int mtk_pcm_dl2_start(struct snd_pcm_substream *substream)
 		      Soc_Aud_InterConnectionOutput_O10);
 #endif
 
-	/* here to set interrupt */
-	irq_add_user(substream,
-		     Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE,
-		     substream->runtime->rate,
-		     substream->runtime->period_size);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, true);
 
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_DL2, runtime->rate);
 	SetChannels(Soc_Aud_Digital_Block_MEM_DL2, runtime->channels);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, true);
 
+	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->period_size);
+	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->rate);
 	EnableAfe(true);
 	return 0;
 }
@@ -699,9 +629,6 @@ static int mtk_asoc_dl2_probe(struct snd_soc_platform *platform)
 {
 	PRINTK_AUDDRV("mtk_asoc_dl2_probe\n");
 	/* allocate dram */
-#if defined(CONFIG_SND_SOC_FLORIDA)
-    mAudioDigitalI2S =  kzalloc(sizeof(AudioDigtalI2S), GFP_KERNEL);
-#endif
 	AudDrv_Allocate_mem_Buffer(platform->dev, Soc_Aud_Digital_Block_MEM_DL2,
 				   Dl2_MAX_BUFFER_SIZE);
 	Dl2_Playback_dma_buf = Get_Mem_Buffer(Soc_Aud_Digital_Block_MEM_DL2);

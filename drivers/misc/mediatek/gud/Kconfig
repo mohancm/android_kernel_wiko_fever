@@ -17,7 +17,6 @@ config MT_TRUSTONIC_TEE_DEBUGFS
 	default n
 	---help---
 	  Enable Trustonic TEE debugfs
-
 #
 # MobiCore configuration
 #

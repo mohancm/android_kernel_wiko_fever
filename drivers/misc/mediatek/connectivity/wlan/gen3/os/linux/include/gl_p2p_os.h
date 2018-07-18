@@ -24,12 +24,6 @@
 *                    E X T E R N A L   R E F E R E N C E S
 ********************************************************************************
 */
-#include <linux/netdevice.h>
-#if CFG_ENABLE_WIFI_DIRECT_CFG_80211
-#include <net/cfg80211.h>
-#endif
-
-#include "wlan_oid.h"
 
 /*******************************************************************************
 *                    E X T E R N A L   V A R I A B L E
@@ -234,6 +228,10 @@ typedef struct _NL80211_DRIVER_WFD_PARAMS {
 ********************************************************************************
 */
 
+BOOLEAN p2pRegisterToWlan(P_GLUE_INFO_T prGlueInfo);
+
+BOOLEAN p2pUnregisterToWlan(P_GLUE_INFO_T prGlueInfo);
+
 BOOLEAN p2pLaunch(P_GLUE_INFO_T prGlueInfo);
 
 BOOLEAN p2pRemove(P_GLUE_INFO_T prGlueInfo);
@@ -251,11 +249,7 @@ BOOLEAN p2pNetUnregister(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgIsRtnlLockAcquired)
 BOOLEAN p2PFreeInfo(P_GLUE_INFO_T prGlueInfo);
 
 VOID p2pSetSuspendMode(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgEnable);
-
 BOOLEAN glP2pCreateWirelessDevice(P_GLUE_INFO_T prGlueInfo);
-
 VOID glP2pDestroyWirelessDevice(VOID);
-
-VOID p2pSetMulticastListWorkQueueWrapper(P_GLUE_INFO_T prGlueInfo);
-
+VOID p2pUpdateChannelTableByDomain(P_GLUE_INFO_T prGlueInfo);
 #endif

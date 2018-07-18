@@ -45,7 +45,6 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/spi.h>
-#define SUPPORT_GPIO_SIMULATION_SPI
 
 static void spidev_release(struct device *dev)
 {
@@ -1526,11 +1525,8 @@ static int of_spi_register_master(struct spi_master *master)
 
 	if (!np)
 		return 0;
-#ifdef SUPPORT_GPIO_SIMULATION_SPI
-	nb=1;
-#else
+
 	nb = of_gpio_named_count(np, "cs-gpios");
-#endif
 	master->num_chipselect = max_t(int, nb, master->num_chipselect);
 
 	/* Return error only for an incorrectly formed cs-gpios property */
@@ -1549,16 +1545,9 @@ static int of_spi_register_master(struct spi_master *master)
 
 	for (i = 0; i < master->num_chipselect; i++)
 		cs[i] = -ENOENT;
-#ifdef SUPPORT_GPIO_SIMULATION_SPI
-	for (i = 0; i < nb; i++)
-	{
-		of_property_read_u32_index(np, "cs-gpios", 0, &cs[i]);
-	}
-	printk("gpio simulationi SPI, cs=%d\n",cs[0]);
-#else
+
 	for (i = 0; i < nb; i++)
 		cs[i] = of_get_named_gpio(np, "cs-gpios", i);
-#endif
 
 	return 0;
 }
@@ -2313,7 +2302,7 @@ int spi_write_then_read(struct spi_device *spi,
 	memcpy(local_buf, txbuf, n_tx);
 	x[0].tx_buf = local_buf;
 	x[1].rx_buf = local_buf + n_tx;
-	x[1].tx_buf = local_buf + n_tx+n_rx;// add for MTK platform read operation
+
 	/* do the i/o */
 	status = spi_sync(spi, &message);
 	if (status == 0)

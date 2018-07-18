@@ -1,4 +1,4 @@
 #ifndef __UTOS_VERSION_H__
 #define __UTOS_VERSION_H__
-#define UTOS_VERSION  "BS.D.2.1.5lenovo_k5mPS.S.4.6.3-2-3-0-0-0-6P11"
+#define UTOS_VERSION  "origin/master: ahead 1 BS.D.2.1.0-0-g4ad163a 201511240939"
 #endif

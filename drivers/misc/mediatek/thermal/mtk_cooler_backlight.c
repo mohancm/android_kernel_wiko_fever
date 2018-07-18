@@ -12,16 +12,7 @@
 
 #include "mt-plat/mtk_thermal_monitor.h"
 
-/* This API function is implemented in mediatek/kernel/drivers/leds/leds.c */
-extern int setMaxbrightness(int max_level, int enable);
-
- /* chenyb1 mod for thermal solution begin 20150701 */
-#define mtk_cooler_backlight_dprintk(fmt, args...) \
-  do { pr_info("thermal/cooler/backlight " fmt, ##args); } while (0)
-#define LCD_BACKLIGHT_THERMAL_LIMIT1 204
-#define LCD_BACKLIGHT_THERMAL_LIMIT2 178
-#define LCD_BACKLIGHT_THERMAL_LIMIT3 153
-/* chenyb1 mod for thermal solution end 20150701 */
+#define mtk_cooler_backlight_dprintk(fmt, args...) pr_debug("thermal/cooler/backlight " fmt, ##args)
 
 #define BACKLIGHT_COOLER_NR 3
 
@@ -38,25 +29,23 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 {
 	if (g_backlight_last_level != g_backlight_level) {
 		mtk_cooler_backlight_dprintk("set brightness level = %d\n", g_backlight_level);
-                  /* chenyb1 mod for thermal solution begin 20150701 */
 		switch (g_backlight_level) {
 		case 0:
 			setMaxbrightness(255, 0);	/* 100% */
 			break;
 		case 1:
-			setMaxbrightness(LCD_BACKLIGHT_THERMAL_LIMIT1, 1);	/* 70% */
+			setMaxbrightness(178, 1);	/* 70% */
 			break;
 		case 2:
-			setMaxbrightness(LCD_BACKLIGHT_THERMAL_LIMIT2, 1);	/* 40% */
+			setMaxbrightness(102, 1);	/* 40% */
 			break;
 		case 3:
-			setMaxbrightness(LCD_BACKLIGHT_THERMAL_LIMIT3, 1);	/* 10% */
+			setMaxbrightness(25, 1);	/* 10% */
 			break;
 		default:
 			setMaxbrightness(255, 0);
 			break;
 		}
-                /* chenyb1 mod for thermal solution end 20150701 */
 	}
 }
 

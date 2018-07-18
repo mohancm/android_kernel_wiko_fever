@@ -264,6 +264,11 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 				<0x08000008 0x0004>,
 				<0x0800000C 0x0004>;
 		};
+		
+				dispte: dispte@0 {
+			compatible = "mediatek,DispTE_gpio";
+		};
+
 
 
 		infrasys: infrasys@10000000 {
@@ -744,16 +749,16 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			clock-names = "uart1-main";
 
 			pinctrl-names = "uart1_gpio_default",
-					"uart1_rx_set",
-					"uart1_rx_clear",
+					//"uart1_rx_set",
+					//"uart1_rx_clear",
 					"uart1_tx_set",
 					"uart1_tx_clear";
 
 			pinctrl-0 = <&uart1_gpio_def_cfg>;
-			pinctrl-1 = <&uart1_rx_set_cfg>;
-			pinctrl-2 = <&uart1_rx_clr_cfg>;
-			pinctrl-3 = <&uart1_tx_set_cfg>;
-			pinctrl-4 = <&uart1_tx_clr_cfg>;
+			//pinctrl-1 = <&uart1_rx_set_cfg>;
+			//pinctrl-2 = <&uart1_rx_clr_cfg>;
+			pinctrl-1 = <&uart1_tx_set_cfg>;
+			pinctrl-2 = <&uart1_tx_clr_cfg>;
 			status = "okay";
 		};
 
@@ -796,7 +801,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 					<GIC_SPI 109 IRQ_TYPE_LEVEL_LOW>, /* DMA Tx IRQ */
 					<GIC_SPI 110 IRQ_TYPE_LEVEL_LOW>; /* DMA Rx IRQ */
 
-			clock-frequency = <26000000>;
+/*			clock-frequency = <26000000>;
 			clock-div = <1>;
 			clocks = <&perisys PERI_UART3>;
 			clock-names = "uart3-main";
@@ -812,7 +817,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			pinctrl-2 = <&uart3_rx_clr_cfg>;
 			pinctrl-3 = <&uart3_tx_set_cfg>;
 			pinctrl-4 = <&uart3_tx_clr_cfg>;
-			status = "okay";
+			status = "okay";*/
 		};
 
 		pwm:pwm@11006000 {
@@ -940,6 +945,8 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			clock-div = <1>;
 		};
 
+
+
 		usb0:usb20@11200000 {
 			compatible = "mediatek,mt6735-usb20";
 			cell-index = <0>;
@@ -952,8 +959,8 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			clocks = <&perisys PERI_USB0>;
 			clock-names = "usb0";
 			vusb33-supply = <&mt_pmic_vusb33_ldo_reg>;
-			iddig_gpio = <0 1>;
-			drvvbus_gpio = <83 2>;
+			iddig_gpio = <54 3>;
+			drvvbus_gpio = <76 0>;
 		};
 
 		audiosys: audiosys@11220000 {
@@ -1016,7 +1023,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			audmiso-gpio = <144 0>;
 			audmosi-gpio = <145 0>;
 			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <117 0>;
+			//extspkamp-gpio = <19 0>;//yangliang mask for 4605 extpa mode2;20160322
 			i2s1clk-gpio = <80 0>;
 			i2s1dat-gpio = <78 0>;
 			i2s1mclk-gpio = <9 0>;
@@ -1668,7 +1675,6 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			gpio-eint = <1>;
 			gpio-irq = <2>;
 		};
-
 		gps {
 			compatible = "mediatek,mt3326-gps";
 		};
@@ -1701,7 +1707,26 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 				<GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>; /*Hypervisor Timer Event*/
 				clock-frequency = <13000000>;
 		};
-
+		mhall: mhall {
+			compatible = "mediatek, mhall-eint";
+		};
+		flash_light: flashlight@0 {
+			compatible = "mediatek,strobe_gpio";
+		};
+		dsi_te_1: dsi_te_1 {
+			compatible = "mediatek, dsi_te-eint";
+		};
+		tinno_hall: hall@0 {
+			compatible = "mediatek, hall";
+		};
+		fp: fp@0 {
+			compatible = "mediatek,fingerprint";
+			vfp-supply = <&mt_pmic_vgp1_ldo_reg>;
+			vfp_mv= <2800>;
+			interrupt-parent = <&eintc>;
+	              interrupts = <9 IRQ_TYPE_EDGE_RISING>;
+	              debounce = <9 0>;
+		};
 		mt_pmic_regulator {
 			compatible = "mediatek,mt_pmic";
 			/*reg = <0x01>*/
@@ -2910,7 +2935,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 	m_baro_pl {
 		compatible = "mediatek,m_baro_pl";
 	};
-	msensor {
+	mag:msensor {
 		compatible = "mediatek,msensor";
 	};
 	m_mag_pl {
@@ -3212,7 +3237,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 
 
 	/* UART3: rx set, rx clear, tx clear, tx clear*/
-	uart3_gpio_def_cfg:uart3gpiodefault {
+	/*uart3_gpio_def_cfg:uart3gpiodefault {
 
 	};
 	uart3_rx_set_cfg:uart3_rx_set@gpio59 {
@@ -3238,7 +3263,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			slew-rate = <1>;
 			output-high;
 		};
-	};
+	};*/
 
 	/* UART GPIO Settings - End */
 };

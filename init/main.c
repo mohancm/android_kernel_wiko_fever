@@ -93,6 +93,11 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_WIKO_UNIFY
+#include <linux/of_device.h>
+#include <asm/uaccess.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -503,6 +508,110 @@ static void __init mm_init(void)
 	vmalloc_init();
 }
 
+
+//#define CONFIG_TINNO_DEV_INFO
+#ifdef CONFIG_WIKO_UNIFY
+static struct proc_dir_entry *device_info_entry;
+
+DEF_TINNO_DEV_INFO(Market_Area);
+DEF_TINNO_DEV_INFO(Proximity_sensor);
+DEF_TINNO_DEV_INFO(Light_sensor);
+DEF_TINNO_DEV_INFO(Gyroscope_sensor);
+DEF_TINNO_DEV_INFO(Acceleration_sensor);
+DEF_TINNO_DEV_INFO(Magnetic_sensor);
+DEF_TINNO_DEV_INFO(OTG_open);
+DEF_TINNO_DEV_INFO(Hall);
+DEF_TINNO_DEV_INFO(C_Area);
+
+struct proc_dir_entry * creat_devinfo_file(const char *name,struct file_operations * fp)
+{
+	struct proc_dir_entry * file_entry;
+	if(device_info_entry!=NULL)
+	{
+		file_entry=proc_create_data(name, S_IRUGO,device_info_entry,fp,NULL);
+		return file_entry;
+	}else{
+		pr_notice("device_info_entry is null! \n");
+		return NULL;
+	}
+}
+
+extern char* saved_command_line;
+
+//if need extend, please modify CMD_BUF&TINNO_CMD_CONFIG_SIZE only
+#define TINNO_CMD_CONFIG_SIZE 8
+
+char * CMD_BUF[]={
+"Market_Area=",
+"Proximity_sensor=",
+"Light_sensor=",
+"Gyroscope_sensor=",
+"Acceleration_sensor=",
+"Magnetic_sensor=",
+"OTG_open=",
+"Hall=",
+};
+
+int tinno_platform_adapter(void)
+{
+	char temp_buf[TINNO_CMD_CONFIG_SIZE][32] = {0};
+	char *p, *q;
+	int i;
+    pr_notice("----wlj----  entry tinno_platform_adapter \n");
+
+	device_info_entry=proc_mkdir("Tinno_devinfo",NULL);
+	CAREAT_TINNO_DEV_INFO(Market_Area);
+	CAREAT_TINNO_DEV_INFO(Proximity_sensor);
+	CAREAT_TINNO_DEV_INFO(Light_sensor);
+	CAREAT_TINNO_DEV_INFO(Gyroscope_sensor);
+	CAREAT_TINNO_DEV_INFO(Acceleration_sensor);
+	CAREAT_TINNO_DEV_INFO(Magnetic_sensor);
+	CAREAT_TINNO_DEV_INFO(OTG_open);
+	CAREAT_TINNO_DEV_INFO(Hall);		//if need extend, please add behind
+	CAREAT_TINNO_DEV_INFO(C_Area);
+	
+//	SET_DEVINFO_STR(Market_Area,"101");      //test
+
+	for(i=0; i < TINNO_CMD_CONFIG_SIZE; i ++ ){
+		p = strstr(saved_command_line, CMD_BUF[i]);
+		if(p == NULL){
+			pr_notice("cmdline do not find tinno dev config %d \n", i);
+			break;
+		}
+		p += strlen(CMD_BUF[i]);
+		if((p - saved_command_line) > strlen(saved_command_line+1)){
+			pr_notice("cmdline find tinno dev config error %d \n", i);
+			break;
+		}
+
+		q = p;
+		while(*q != ' ' && *q != '\0')
+			q++;
+		if((int)(q-p) > 32){
+			pr_notice("cmdline find tinno dev config length error %d \n", i);
+			break;
+		}
+		
+		memset((void*)temp_buf[i], 0, sizeof(temp_buf[i]));
+		strncpy((char*)temp_buf[i], (const char*)p, (int)(q-p));
+	}
+	SET_DEVINFO_STR(Market_Area,temp_buf[0]);
+	SET_DEVINFO_STR(Proximity_sensor,temp_buf[1]);
+	SET_DEVINFO_STR(Light_sensor,temp_buf[2]);
+	SET_DEVINFO_STR(Gyroscope_sensor,temp_buf[3]);
+	SET_DEVINFO_STR(Acceleration_sensor,temp_buf[4]);
+	SET_DEVINFO_STR(Magnetic_sensor,temp_buf[5]);
+	SET_DEVINFO_STR(OTG_open,temp_buf[6]);
+	SET_DEVINFO_STR(Hall,temp_buf[7]);
+	SET_DEVINFO_STR(C_Area,temp_buf[0]);
+
+    //if need extend, please add behind
+
+	return 0;
+}
+
+#endif
+
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
@@ -894,6 +1003,12 @@ static void __init do_basic_setup(void)
 	cpuset_init_smp();
 	usermodehelper_init();
 	shmem_init();
+    
+#ifdef CONFIG_WIKO_UNIFY
+    pr_notice("----wlj----  call tinno_platform_adapter \n");
+    tinno_platform_adapter();
+#endif
+
 	driver_init();
 	init_irq_proc();
 	do_ctors();

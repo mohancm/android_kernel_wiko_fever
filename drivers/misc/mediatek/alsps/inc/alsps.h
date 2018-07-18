@@ -27,10 +27,18 @@
 #include "alsps_factory.h"
 
 #define ALSPS_TAG					"<ALS/PS> "
+//#define ALSPS_DEBUG
+#if defined(ALSPS_DEBUG)
 #define ALSPS_FUN(f)			printk(ALSPS_TAG"%s\n", __func__)
 #define ALSPS_ERR(fmt, args...)	printk(ALSPS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 #define ALSPS_LOG(fmt, args...)	printk(ALSPS_TAG fmt, ##args)
 #define ALSPS_VER(fmt, args...)   printk(ALSPS_TAG"%s: "fmt, __func__, ##args) /* ((void)0) */
+#else
+#define ALSPS_FUN(f)
+#define ALSPS_ERR(fmt, args...)
+#define ALSPS_LOG(fmt, args...)
+#define ALSPS_VER(fmt, args...)
+#endif
 
 #define   OP_ALSPS_DELAY	0X01
 #define	OP_ALSPS_ENABLE	0X02
@@ -111,10 +119,7 @@ struct alsps_drv_obj {
 };
 
 struct alsps_context {
-	/*lenovo-sw, chenzz3, integrate P/L sensor driver, begin*/
-	struct input_dev		*idev_ps;
-	struct input_dev		*idev_als;
-	/*lenovo-sw, chenzz3, integrate P/L sensor driver, end*/
+	struct input_dev		*idev;
 	struct miscdevice	mdev;
 	struct work_struct	report_ps;
 	struct work_struct	report_als;

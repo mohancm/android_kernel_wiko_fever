@@ -234,8 +234,7 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd, unsigned lon
 		}
 	case MTK_HDMI_IS_FORCE_AWAKE:
 		{
-			if (extd_driver[DEV_MHL] && extd_driver[DEV_MHL]->is_force_awake)
-				r = extd_driver[DEV_MHL]->is_force_awake(argp);
+			/* r = hdmi_is_force_awake(argp); */
 			break;
 		}
 	case MTK_HDMI_GET_EDID:

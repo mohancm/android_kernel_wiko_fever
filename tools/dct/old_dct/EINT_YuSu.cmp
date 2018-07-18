@@ -59,15 +59,12 @@ LTE_SDIO
 LTE_WDT
 EXT_BUCK_OC
 EDP_INTN
+DSI_TE
 DSI_TE_1
 VBUS_DETECT_PIN_EINT
-WM8281_IRQ_EINT
-/*lenovo-sw caoyi1 add for A+G sensor eint pin 20150325 begin*/
-ACCEL_GYRO_INT1
-ACCEL_GYRO_INT2
-/*lenovo-sw caoyi1 add for A+G sensor eint pin 20150325 end*/
-FPC_INT
-SWTP
+SENSORHUB
+MRDUMP_EXT_RST
+EXT_DBG_KEY
 
 [MD1_EINT_variables]
 MD1_SIM1_HOT_PLUG_EINT

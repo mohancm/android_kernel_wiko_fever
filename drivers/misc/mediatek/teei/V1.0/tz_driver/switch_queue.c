@@ -1,6 +1,10 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/cpu.h>
+#include <linux/freezer.h>
 #include <linux/list.h>
+#include <linux/mutex.h>
+#include <linux/semaphore.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include "nt_smc_call.h"
@@ -13,7 +17,6 @@
 #define SCHED_CALL	0x04
 
 #define FP_SYS_NO	100
-#define KEYMASTER_SYS_NO	101
 
 #define VFS_SYS_NO	0x08
 #define REETIME_SYS_NO	0x07 
@@ -58,13 +61,11 @@ extern struct kthread_worker ut_fastcall_worker;
 
 extern int forward_call_flag;
 extern int fp_call_flag;
-extern int keymaster_call_flag;
 extern int teei_vfs_flag;
 extern int irq_call_flag;
 
 extern void nt_sched_t_call(void);
 extern int __send_fp_command(unsigned long share_memory_size);
-extern int __send_keymaster_command(unsigned long share_memory_size);
 extern int __vfs_handle(struct service_handler *handler);
 extern int __reetime_handle(struct service_handler *handler);
 extern int __teei_smc_call(unsigned long local_smc_cmd,
@@ -85,6 +86,7 @@ extern int __teei_smc_call(unsigned long local_smc_cmd,
                 int *error_code,
                 struct semaphore *psema);
 
+
 static struct switch_call_struct *create_switch_call_struct(void)
 {
 	struct switch_call_struct *tmp_entry = NULL;
@@ -99,7 +101,7 @@ static struct switch_call_struct *create_switch_call_struct(void)
 
 static int init_switch_call_struct(struct switch_call_struct *ent, int work_type, unsigned long buff)
 {
-	if (ent == NULL) {
+	if ((ent == NULL)) {
 		printk("[%s][%d] the paraments are wrong!\n", __func__, __LINE__);
 		return -EINVAL;
 	}
@@ -118,13 +120,14 @@ static int destroy_switch_call_struct(struct switch_call_struct *ent)
 }
 
 struct ut_smc_call_work {
-        struct kthread_work work;
-        void *data;
+	struct kthread_work work;
+	void *data;
 };
+
 
 static int ut_smc_call(void *buff)
 {
-        struct ut_smc_call_work usc_work = {
+	struct ut_smc_call_work usc_work = {
                 KTHREAD_WORK_INIT(usc_work.work, switch_fn),
                 .data = buff,
         };
@@ -134,6 +137,7 @@ static int ut_smc_call(void *buff)
         flush_kthread_work(&usc_work.work);
         return 0;
 }
+
 
 static int check_work_type(int work_type)
 {
@@ -173,10 +177,33 @@ int add_work_entry(int work_type, unsigned long buff)
 		return retVal;
 	}
 
-	retVal = ut_smc_call((void *)work_entry); 
-	
+#if 0
+	retVal = add_switch_call_link(&switch_queue_head, work_entry);
+#else
+	retVal = ut_smc_call((void *)work_entry);
+#endif	
 	return retVal;
 }
+
+#if 0
+int del_work_entry(struct switch_call_struct *ent)
+{
+	int retVal = 0;
+
+	retVal = del_switch_call_link(ent);
+	if (retVal != 0) {
+		printk("[%s][%d] del_switch_call_link failed %d!\n", __func__, __LINE__, retVal);
+		return retVal;
+	}
+
+	retVal = destroy_switch_call_struct(ent);
+	if (retVal != 0) {
+		printk("[%s][%d] destroy_switch_call_struct failed %d!\n", __func__, __LINE__, retVal);
+		return retVal;
+	}
+	return 0;
+}
+#endif
 
 int get_call_type(struct switch_call_struct *ent)
 {
@@ -240,12 +267,8 @@ int handle_fdrv_call(void *buff)
         rmb();
 
 	switch(cd->fdrv_call_type) {
-	printk("cd->fdrv_call_type = %d \n", cd->fdrv_call_type);
 	case FP_SYS_NO:
 		cd->retVal = __send_fp_command(cd->fdrv_call_buff_size);
-		break;
-	case KEYMASTER_SYS_NO:
-		cd->retVal = __send_keymaster_command(cd->fdrv_call_buff_size);
 		break;
 	default:
 		cd->retVal = -EINVAL;
@@ -283,6 +306,7 @@ int handle_bdrv_call(void *buff)
 	default:
 		cd->retVal = -EINVAL;
 	}
+	
 
 	/* with a wmb() */
         wmb();
@@ -299,26 +323,26 @@ int handle_switch_call(void *buff)
 		msleep(10);
 		nt_sched_t_call();
 	} else if (irq_call_flag == GLSCH_HIGH) {
-		/* printk("[%s][%d]**************************\n", __func__, __LINE__ ); */
+		printk("[%s][%d]**************************\n", __func__, __LINE__ ); 
 		irq_call_flag = GLSCH_NONE;
 		nt_sched_t_call();
 		/*msleep_interruptible(10);*/
 	} else if (fp_call_flag == GLSCH_HIGH) {
-		/* printk("[%s][%d]**************************\n", __func__, __LINE__ ); */
+		printk("[%s][%d]**************************\n", __func__, __LINE__ ); 
 		if (teei_vfs_flag == 0) {
 			nt_sched_t_call();
 		} else {
 			msleep_interruptible(1);
 		}
 	} else if (forward_call_flag == GLSCH_LOW) {
-		/* printk("[%s][%d]**************************\n", __func__, __LINE__ ); */
+		printk("[%s][%d]**************************\n", __func__, __LINE__ ); 
 		if (teei_vfs_flag == 0) {
 			nt_sched_t_call();
 		} else {
 			msleep_interruptible(1);
 		}
 	} else {
-		/* printk("[%s][%d]**************************\n", __func__, __LINE__ ); */
+		printk("[%s][%d]**************************\n", __func__, __LINE__ );
 		msleep_interruptible(1);
 	}
 #else
@@ -366,8 +390,7 @@ static void switch_fn(struct kthread_work *work)
 		}
 		break;
 	default:
-		printk("switch fn handles a undefined call!\n");
-		break;
+		printk("switch fn handles a undefined call! [%d] \n", call_type);
 	}
 
 	retVal = destroy_switch_call_struct(switch_ent);
@@ -378,3 +401,4 @@ static void switch_fn(struct kthread_work *work)
 
 	return 0;	
 }
+

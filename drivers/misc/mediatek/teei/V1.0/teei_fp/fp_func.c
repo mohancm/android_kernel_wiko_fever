@@ -13,9 +13,9 @@
 #include <asm/cacheflush.h>
 #include<linux/semaphore.h>
 #include<linux/slab.h>
-#include "../tz_driver/include/teei_id.h"
-#include "../tz_driver/include/tz_service.h"
-#include "../tz_driver/include/nt_smc_call.h"
+#include "../tz_driver/teei_id.h"
+#include "../tz_driver/tz_service.h"
+#include "../tz_driver/nt_smc_call.h"
 
 #include "teei_fp.h"
 
@@ -47,23 +47,8 @@ extern char *fp_buff_addr;
 
 struct fp_dev *fp_devp;
 
-extern unsigned long teei_config_flag;
-
 int fp_open(struct inode *inode, struct file *filp)
 {
-  int ret;   
-
-  DECLARE_WAIT_QUEUE_HEAD_ONSTACK(__fp_open_wq); 
-
-  printk(KERN_NOTICE "[TEE] teei_config_flag = %ld\n", teei_config_flag); 
-
-  ret = wait_event_timeout(__fp_open_wq, (teei_config_flag == 1), msecs_to_jiffies(1000*20)); 
-  if(ret <= 0) {  
-      printk(KERN_ERR "[TEE] error , tee load not finished yet , and wait timeout\n");  
-      return -1;  
-  }   
-
- printk(KERN_WARNING "[TEE] open wait for %u msecs\n", jiffies_to_msecs(ret));
 #ifdef FP_DEBUG
 	printk("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!say hello  from fp!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 #endif
@@ -78,13 +63,12 @@ int fp_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-/* lenovo-sw, chenzz3, TEEI-P2, begin */
-static long fp_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
+static int fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	down(&fp_api_lock);
 	unsigned int args_len = 0;
 	unsigned int fp_cid = 0xFF;
 	unsigned int fp_fid = 0xFF;
-	down(&fp_api_lock);
 #ifdef FP_DEBUG
 	printk("##################################\n");
 	printk("fp ioctl received received cmd is: %x arg is %x\n", cmd, (unsigned int)arg);
@@ -121,7 +105,7 @@ static long fp_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		}
 
 		Flush_Dcache_By_Area((unsigned long)fp_buff_addr,
-				(unsigned long)fp_buff_addr + FP_SIZE);
+				fp_buff_addr + FP_SIZE);
 		/*send command data to TEEI*/
 		send_fp_command(FP_DRIVER_ID);
 #ifdef FP_DEBUG
@@ -130,7 +114,7 @@ static long fp_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		printk("[%s][%d] fp_buff_addr 88 - 91 = %d\n", __func__, args_len, *((unsigned int *)(fp_buff_addr + 88)));
 #endif
 
-		if (copy_to_user((void *)arg, fp_buff_addr,
+		if (copy_to_user((void *)arg, (unsigned long)fp_buff_addr,
 				args_len + 16)) {
 			printk("copy from user failed. \n");
 			up(&fp_api_lock);
@@ -148,7 +132,6 @@ static long fp_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 	up(&fp_api_lock);
 	return 0;
 }
-/* lenovo-sw, chenzz3, TEEI-P2, end */
 
 static ssize_t fp_read(struct file *filp, char __user *buf,
 		size_t size, loff_t *ppos)

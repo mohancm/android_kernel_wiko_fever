@@ -522,18 +522,12 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf, unsigned
 		ret = ccci_send_msg_to_md(md, CCCI_SYSTEM_TX, MD_THROTTLING, *((int *)buf), 1);
 		break;
 		/* used for throttling feature - end */
-#if defined(FEATURE_MTK_SWITCH_TX_POWER)/* lenovo sw linyf add for SWTP func, 2016-02-01, KOLEOSM-4 */
+#if defined(CONFIG_MTK_SWITCH_TX_POWER)
 	case ID_UPDATE_TX_POWER:
 		{
 			unsigned int msg_id = (md_id == 0) ? MD_SW_MD1_TX_POWER : MD_SW_MD2_TX_POWER;
 			unsigned int mode = *((unsigned int *)buf);
-			//add by jianjun
-			if(mode == 1)
-				mode = 42;
-			else if(mode == 0)
-				mode = 21;
-			pr_debug("ID_UPDATE_TX_POWER, mode = %d\n", mode);
-			//end add
+
 			ret = ccci_send_msg_to_md(md, CCCI_SYSTEM_TX, msg_id, mode, 0);
 		}
 		break;
@@ -690,16 +684,18 @@ int ccci_send_virtual_md_msg(struct ccci_modem *md, CCCI_CH ch, CCCI_MD_MSG msg,
 	return ret;
 }
 
-#if defined(FEATURE_MTK_SWITCH_TX_POWER)/* lenovo sw linyf add for SWTP func, 2016-02-01, KOLEOSM-4 */
+#if defined(CONFIG_MTK_SWITCH_TX_POWER)
 static int switch_Tx_Power(int md_id, unsigned int mode)
 {
 	int ret = 0;
 	unsigned int resv = mode;
+	unsigned int msg_id = (md_id == 0) ? MD_SW_MD1_TX_POWER : MD_SW_MD2_TX_POWER;
 
-/* Begin lenovo sw linyf add for SWTP func, 2016-02-01, KOLEOSM-4 */
+#if 1
 	ret = exec_ccci_kern_func_by_md_id(md_id, ID_UPDATE_TX_POWER, (char *)&resv, sizeof(resv));
-/* End, KOLEOSM-4 */
-
+#else
+	ret = ccci_send_msg_to_md(md_id, CCCI_SYSTEM_TX, msg_id, resv, 0);
+#endif
 	pr_debug("[swtp] switch_MD%d_Tx_Power(%d): ret[%d]\n", md_id + 1, resv, ret);
 
 	CCCI_DBG_MSG(md_id, "ctl", "switch_MD%d_Tx_Power(%d): %d\n", md_id + 1, resv, ret);

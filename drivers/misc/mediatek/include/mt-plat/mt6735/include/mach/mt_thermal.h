@@ -13,7 +13,7 @@
 #include "mt-plat/sync_write.h"
 #include "mtk_thermal_typedefs.h"
 #include "mt-plat/mtk_mdm_monitor.h"
-#include "../../../../../base/power/mt6735/mt_gpufreq.h"
+#include "mt_gpufreq.h"
 /* #include "mach/mt6575_auxadc_hw.h" */
 
 #if !defined(CONFIG_MTK_LEGACY)

@@ -443,7 +443,8 @@ enum DPI_STATUS ddp_dpi_ConfigBG(cmdqRecHandle cmdq, bool enable, int BG_W, int 
 
 		pol2.BG_RIGHT = BG_W / 2;
 		pol2.BG_LEFT = BG_W - pol2.BG_RIGHT;
-		DPI_OUTREG32(cmdq, &DPI_REG->BG_HCNTL, pol2.BG_LEFT << 16 | pol2.BG_RIGHT);
+		DPI_OUTREGBIT(cmdq, struct DPI_REG_BG_HCNTL, DPI_REG->BG_HCNTL, BG_RIGHT, pol2.BG_RIGHT);
+		DPI_OUTREGBIT(cmdq, struct DPI_REG_BG_HCNTL, DPI_REG->BG_HCNTL, BG_LEFT, pol2.BG_LEFT);
 
 		pol3.BG_BOT = BG_H / 2;
 		pol3.BG_TOP = BG_H - pol3.BG_BOT;

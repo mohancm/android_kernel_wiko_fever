@@ -6125,41 +6125,16 @@ wlanoidSetSwCtrlWrite(IN P_ADAPTER_T prAdapter,
 			}
 #endif
 #if CFG_MTK_STAGE_SCAN
-			else if (u2SubId == 0x1250) {
+			else if (u2SubId == 0x1250)
 				prAdapter->aePreferBand[KAL_NETWORK_TYPE_AIS_INDEX] = BAND_NULL;
-			} else if (u2SubId == 0x1251) {
+			else if (u2SubId == 0x1251)
 				prAdapter->aePreferBand[KAL_NETWORK_TYPE_AIS_INDEX] = BAND_2G4;
-				if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED) {
-					DBGLOG(INIT, TRACE, "current ssid %s, bssid "MACSTR", freq is %d\n",
-					prAdapter->rWlanInfo.rCurrBssId.rSsid.aucSsid,
-					MAC2STR(prAdapter->rWlanInfo.rCurrBssId.arMacAddress),
-					prAdapter->rWlanInfo.rCurrBssId.rConfiguration.u4DSConfig);
-					if (prAdapter->rWlanInfo.rCurrBssId.rConfiguration.u4DSConfig <= 5825000 &&
-						prAdapter->rWlanInfo.rCurrBssId.rConfiguration.u4DSConfig >= 5180000) {
-						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
-							WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
-					}
-				}
-			} else if (u2SubId == 0x1252) {
-				if(prAdapter->fgEnable5GBand) {
+			else if (u2SubId == 0x1252) {
+				if (prAdapter->fgEnable5GBand)
 					prAdapter->aePreferBand[KAL_NETWORK_TYPE_AIS_INDEX] = BAND_5G;
-				if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED) {
-					DBGLOG(INIT, TRACE, "current ssid %s, bssid "MACSTR", freq is %d\n",
-					prAdapter->rWlanInfo.rCurrBssId.rSsid.aucSsid,
-					MAC2STR(prAdapter->rWlanInfo.rCurrBssId.arMacAddress),
-					prAdapter->rWlanInfo.rCurrBssId.rConfiguration.u4DSConfig);
-					if (prAdapter->rWlanInfo.rCurrBssId.rConfiguration.u4DSConfig <= 2484000 &&
-						prAdapter->rWlanInfo.rCurrBssId.rConfiguration.u4DSConfig >= 2412000) {
-						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
-							WLAN_STATUS_MEDIA_DISCONNECT, NULL, 0);
-					}
-				}
-			}
-                else {
-                    /* Skip this setting if 5G band is disabled */
-                    DBGLOG(SCN, INFO, "Skip 5G stage scan request due to "
-                        "5G is disabled\n");
-                }
+				else
+					/* Skip this setting if 5G band is disabled */
+					DBGLOG(SCN, INFO, "Skip 5G stage scan request due to " "5G is disabled\n");
 			}
 #endif
 		}
@@ -10010,12 +9985,12 @@ wlanoidSetCountryCode(IN P_ADAPTER_T prAdapter,
 
 	prAdapter->rWifiVar.rConnSettings.u2CountryCode = (((UINT_16) pucCountry[0]) << 8) | ((UINT_16) pucCountry[1]);
 
-	/* Force to re-search country code in country domains */
-	prAdapter->prDomainInfo = NULL;
+	prAdapter->prDomainInfo = NULL;	/* Force to re-search country code */
 	rlmDomainSendCmd(prAdapter, TRUE);
 
-	/* Update supported channel list in channel table based on current country domain */
+	/* Update supported channel list for WLAN & P2P interface (wiphy->bands) */
 	wlanUpdateChannelTable(prAdapter->prGlueInfo);
+	p2pUpdateChannelTableByDomain(prAdapter->prGlueInfo);
 
 	return WLAN_STATUS_SUCCESS;
 }

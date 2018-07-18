@@ -1,6 +1,6 @@
 #ifndef _DDP_RDMA_EX_H_
 #define _DDP_RDMA_EX_H_
-#include "../ddp_info.h"
+#include "ddp_info.h"
 
 #define RDMA_INSTANCES  2
 #define RDMA_MAX_WIDTH  4095

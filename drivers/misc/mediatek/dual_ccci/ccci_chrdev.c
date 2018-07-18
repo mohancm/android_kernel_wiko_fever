@@ -25,6 +25,11 @@ struct ccci_dev_client *md_logger_client = NULL;
 static spinlock_t md_logger_lock;
 static unsigned int catch_more;
 
+#ifdef CONFIG_WIKO_UNIFY
+extern char* Market_Area;
+#endif
+
+
 #ifdef CONFIG_MTK_MD_SBP_CUSTOM_VALUE
 static unsigned int md_sbp_code;
 static unsigned int md_sbp_code_default;
@@ -55,7 +60,21 @@ int scan_image_list(int md_id, char fmt[], unsigned int out_img_list[],
 	struct file *filp = NULL;
 
 	for (i = 0; i < (sizeof(type_str) / sizeof(char *)); i++) {
+/// wanglj, DATE20160225, NOTE, Bug EGAFMA-118 START {
+#ifdef CONFIG_WIKO_UNIFY
+		if(strstr(fmt, "modem_"))
+		{
+		    snprintf(img_name, 32, "modem_%d_%s_n_%s.img", md_id + 1, type_str[i], Market_Area);
+		}
+		else
+		{
+			snprintf(img_name, 32, fmt, md_id + 1, type_str[i]);
+		}
+#else
 		snprintf(img_name, 32, fmt, md_id + 1, type_str[i]);
+#endif
+/// wanglj, Bug EGAFMA-118 END }
+
 		/*  Find at CIP first */
 		snprintf(full_path, 64, "%s%s", CONFIG_MODEM_FIRMWARE_CIP_PATH,
 			 img_name);

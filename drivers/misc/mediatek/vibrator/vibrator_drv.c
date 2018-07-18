@@ -33,7 +33,7 @@
 #define VERSION					        "v 0.1"
 #define VIB_DEVICE				"mtk_vibrator"
 
-static int debug_enable_vib_hal = 0;
+static int debug_enable_vib_hal = 1;
 /* #define pr_fmt(fmt) "[vibrator]"fmt */
 #define VIB_DEBUG(format, args...) do { \
 	if (debug_enable_vib_hal) {\

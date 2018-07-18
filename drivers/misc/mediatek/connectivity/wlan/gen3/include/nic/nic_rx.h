@@ -1074,6 +1074,4 @@ WLAN_STATUS nicRxFlush(IN P_ADAPTER_T prAdapter);
 
 WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb);
 
-VOID nicRxMgmtNoWTBLHandling(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb); /* lenovo-sw lumy1, mtk temp patch  for KE*/
-
 #endif /* _NIC_RX_H */

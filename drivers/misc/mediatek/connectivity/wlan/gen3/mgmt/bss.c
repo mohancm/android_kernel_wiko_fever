@@ -695,12 +695,6 @@ VOID bssDetermineStaRecPhyTypeSet(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBs
 		ucVhtOption = prWifiVar->ucP2pGcVht;
 	}
 
-	/* Check VHT capability is enabled for this country */
-	if (rlmCountryIs11acDisabled(prAdapter)) {
-		DBGLOG(BSS, INFO, "Disable VHT\n");
-		prStaRec->ucPhyTypeSet &= ~PHY_TYPE_BIT_VHT;
-	}
-
 	/* Set HT/VHT capability from Feature Option */
 	if (IS_FEATURE_DISABLED(ucHtOption))
 		prStaRec->ucPhyTypeSet &= ~PHY_TYPE_BIT_HT;

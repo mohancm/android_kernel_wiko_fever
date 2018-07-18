@@ -5,10 +5,6 @@
 #define AKM09911_H
 
 #include <linux/ioctl.h>
-/*lenovo-sw caoyi1 modify begin*/
-#include <linux/gpio.h>
-#include <linux/platform_device.h>
-/*lenovo-sw caoyi1 modify end*/
 
 #define AKM09911_I2C_NAME "akm09911"
 

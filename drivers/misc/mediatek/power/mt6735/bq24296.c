@@ -12,10 +12,6 @@
 #include <mt-plat/charging.h>
 #include "bq24296.h"
 
-//lenovo-sw mahj2 add for board temp Begin
-#include <linux/power_supply.h>
-//#include <mach/mt_thermal.h>
-//lenovo-sw mahj2 add for board temp End
 /**********************************************************
   *
   *   [I2C Slave Setting]
@@ -24,90 +20,11 @@
 #define bq24296_SLAVE_ADDR_WRITE   0xD6
 #define bq24296_SLAVE_ADDR_READ    0xD7
 
-//lenovo-sw mahj2 modify at 20150318 Begin
-#define bq24296_BUSNUM 2
-//lenovo-sw mahj2 modify at 20150318 End
-//lenovo-sw mahj2 add for board temp Begin
-#define BQ24296_POWER_SUPPLY
-#ifdef BQ24296_POWER_SUPPLY
-	struct power_supply charger;
-extern int mtkts_bts_get_hw_temp(void);
-#endif
-//lenovo-sw mahj2 add for board temp End
 static struct i2c_client *new_client;
 static const struct i2c_device_id bq24296_i2c_id[] = { {"bq24296", 0}, {} };
 
 kal_bool chargin_hw_init_done = KAL_FALSE;
 static int bq24296_driver_probe(struct i2c_client *client, const struct i2c_device_id *id);
-
-//lenovo-sw mahj2 add for board temp Begin
-#ifdef BQ24296_POWER_SUPPLY
-
-static enum power_supply_property bq24296_power_supply_props[] = {
-	/* TODO: maybe add more power supply properties */
-	POWER_SUPPLY_PROP_TEMP,
-};
-
-static int bq24296_power_supply_get_property(struct power_supply *psy,
-					     enum power_supply_property psp,
-					     union power_supply_propval *val)
-{
-	switch (psp) {
-	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = mtkts_bts_get_hw_temp()/1000;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int bq24296_power_supply_set_property(struct power_supply *psy,
-					     enum power_supply_property psp,
-					     const union power_supply_propval *val)
-{
-	switch (psp) {
-		default:
-			pr_err("%s not support power_supply property cmd\n", __func__);
-			return -EINVAL;
-	}
-	return 0;
-}
-
-static int bq24296_power_supply_property_is_writeable(struct power_supply *psy,
-					enum power_supply_property psp)
-{
-	switch (psp) {
-		default:
-			break;
-	}
-
-	return 0;
-}
-
-static int bq24296_power_supply_init(struct i2c_client *client)
-{
-	int ret;
-
-	charger.name = "ext-charger";
-	charger.type = POWER_SUPPLY_TYPE_USB;
-	charger.properties = bq24296_power_supply_props;
-	charger.num_properties = ARRAY_SIZE(bq24296_power_supply_props);
-	charger.get_property = bq24296_power_supply_get_property;
-	charger.set_property = bq24296_power_supply_set_property;
-	charger.property_is_writeable = bq24296_power_supply_property_is_writeable;	
-
-	ret = power_supply_register(&client->dev, &charger);
-	if (ret) {
-		return -1;
-	}
-
-	return 0;
-}
-
-#endif
-//lenovo-sw mahj2 add for board temp End
 
 #ifdef CONFIG_OF
 static const struct of_device_id bq24296_of_match[] = {
@@ -164,9 +81,6 @@ int bq24296_read_byte(unsigned char cmd, unsigned char *returnData)
 		new_client->ext_flag = 0;
 
 		mutex_unlock(&bq24296_i2c_access);
-	//lenovo-sw mahj2 add for debug at 20150318 Begin
-	printk("bq24296 i2c read byte error: %d\n",ret);
-	//lenovo-sw mahj2 add for debug at 20150318 End
 		return 0;
 	}
 
@@ -196,9 +110,6 @@ int bq24296_write_byte(unsigned char cmd, unsigned char writeData)
 	if (ret < 0) {
 		new_client->ext_flag = 0;
 		mutex_unlock(&bq24296_i2c_access);
-	//lenovo-sw mahj2 add for debug at 20150318 Begin
-	printk("bq24296 i2c write byte error: %d\n",ret);
-	//lenovo-sw mahj2 add for debug at 20150318 End
 		return 0;
 	}
 
@@ -660,14 +571,13 @@ int is_bq24296_exist(void)
 void bq24296_dump_register(void)
 {
 	int i = 0;
-//lenovo-sw mahj2 modify for debug Begin
-	battery_log(BAT_LOG_CRTI, "[bq24296] ");
+
+	battery_log(BAT_LOG_FULL, "[bq24296] ");
 	for (i = 0; i < bq24296_REG_NUM; i++) {
 		bq24296_read_byte(i, &bq24296_reg[i]);
-		battery_log(BAT_LOG_CRTI, "[0x%x]=0x%x ", i, bq24296_reg[i]);
+		battery_log(BAT_LOG_FULL, "[0x%x]=0x%x ", i, bq24296_reg[i]);
 	}
-	battery_log(BAT_LOG_CRTI, "\n");
-//lenovo-sw mahj2 modify for debug End
+	battery_log(BAT_LOG_FULL, "\n");
 }
 
 static int bq24296_driver_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -685,15 +595,6 @@ static int bq24296_driver_probe(struct i2c_client *client, const struct i2c_devi
 	memset(new_client, 0, sizeof(struct i2c_client));
 
 	new_client = client;
-//lenovo-sw mahj2 add for board temp Begin
-#ifdef BQ24296_POWER_SUPPLY
-	err = bq24296_power_supply_init(new_client);
-	if (err) {
-		pr_notice("[bq24296_power_supply_init] failed to register power supply: %d\n", err);
-		goto exit;
-	}	
-#endif
-//lenovo-sw mahj2 add for board temp End
 
 	/* --------------------- */
 	bq24296_hw_component_detect();
@@ -784,16 +685,11 @@ static struct platform_driver bq24296_user_space_driver = {
 		   .name = "bq24296-user",
 		   },
 };
-//lenovo-sw mahj2 modify at 20150318 Begin
-static struct i2c_board_info __initdata i2c_bq24296 = { I2C_BOARD_INFO("bq24296", (bq24296_SLAVE_ADDR_WRITE>>1))};
-//lenovo-sw mahj2 modify at 20150318 End
+
 static int __init bq24296_subsys_init(void)
 {
 	int ret = 0;
 
-//lenovo-sw mahj2 modify at 20150318 Begin
-    i2c_register_board_info(bq24296_BUSNUM, &i2c_bq24296, 1);
-//lenovo-sw mahj2 modify at 20150318 End
 	if (i2c_add_driver(&bq24296_driver) != 0)
 		battery_log(BAT_LOG_CRTI, "[bq24261_init] failed to register bq24261 i2c driver.\n");
 	else

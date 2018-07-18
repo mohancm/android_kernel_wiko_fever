@@ -30,31 +30,6 @@ extern void __iomem *pwm_base;
 /***********************************
 * PWM register address             *
 ************************************/
-#if CONFIG_SPI_BITBANG //pwm_spi
-extern void __iomem *pericfg_base_t;
-
-#undef BASE_AHB
-#define BASE_AHB pericfg_base_t
-
-//extern void __iomem *dcmcfg_base;
-//#undef BASE_DCM
-//#define BASE_DCM dcmcfg_base
-
-#define CK_SEL (BASE_AHB+0x0005C)
-//#define DCM_ENABLE (BASE_AHB+0x00050)
-//#define DCM_CFG (BASE_DCM+0x00004)
-#define PWM_ULTRA (BASE_AHB+0x001FC)
-
-#define PWM3_DELAY (PWM_BASE+0x00004)
-#define PWM4_DELAY (PWM_BASE+0x00008)
-#define PWM5_DELAY (PWM_BASE+0x0000C)
-
-#define PWM_DELAY_DURATION_MASK 0x0000FFFF
-#define PWM_DELAY_CLK_MASK 0x00010000
-
-#define PWM_ENABLE_SEQ_OFFSET 16
-#endif
-
 #define PWM_ENABLE (PWM_BASE+0x0000)
 
 #define PWM_3DLCM	(PWM_BASE+0x1D0)

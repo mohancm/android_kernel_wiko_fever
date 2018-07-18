@@ -1800,6 +1800,7 @@ static int mpu6050_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	memset(obj, 0, sizeof(struct mpu6050_i2c_data));
 
 	obj->hw = hw;
+	client->addr=obj->hw->i2c_addr[0];
 	err = hwmsen_get_convert(obj->hw->direction, &obj->cvt);
 	if (err) {
 		GYRO_ERR("invalid direction: %d\n", obj->hw->direction);

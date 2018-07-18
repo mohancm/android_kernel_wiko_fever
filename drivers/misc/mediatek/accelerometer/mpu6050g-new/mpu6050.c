@@ -823,7 +823,7 @@ static int MPU6050_ReadChipInfo(struct i2c_client *client, char *buf, int bufsiz
 		return -2;
 	}
 
-	sprintf(buf, "MPU6050 Chip");
+	sprintf(buf, "MPU6881 Chip");	//Modify for *#0661#
 	return 0;
 }
 
@@ -1968,7 +1968,7 @@ static int mpu6050_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	memset(obj, 0, sizeof(struct mpu6050_i2c_data));
 
 	obj->hw = hw;
-
+	client->addr=obj->hw->i2c_addr[0];
 	err = hwmsen_get_convert(obj->hw->direction, &obj->cvt);
 	if (err) {
 		GSE_ERR("invalid direction: %d\n", obj->hw->direction);

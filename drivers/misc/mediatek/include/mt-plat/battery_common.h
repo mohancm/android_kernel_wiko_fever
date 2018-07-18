@@ -8,7 +8,12 @@
  *  BATTERY VOLTAGE
  ****************************************************************************/
 #define PRE_CHARGE_VOLTAGE                  (3200)
+
+#if defined(CONFIG_PROJECT_P4605_MMX_IN)
+#define SYSTEM_OFF_VOLTAGE                  (3300)
+#else
 #define SYSTEM_OFF_VOLTAGE                  (3400)
+#endif
 #define CONSTANT_CURRENT_CHARGE_VOLTAGE     (4100)
 #define CONSTANT_VOLTAGE_CHARGE_VOLTAGE     (4200)
 #define CV_DROPDOWN_VOLTAGE                 (4000)
@@ -85,6 +90,9 @@ typedef enum {
 	BATTERY_AVG_CURRENT = 0,
 	BATTERY_AVG_VOLT = 1,
 	BATTERY_AVG_TEMP = 2,
+#if defined(CONFIG_TINNO_QUICK_CHARGING)
+	BATTERY_AVG_PQ = 3,
+#endif
 	BATTERY_AVG_MAX
 } BATTERY_AVG_ENUM;
 
@@ -118,17 +126,17 @@ typedef enum {
 } temp_state_enum;
 
 
-#define TEMP_POS_60_THRESHOLD  50
-#define TEMP_POS_60_THRES_MINUS_X_DEGREE 47
+#define TEMP_POS_60_THRESHOLD  58
+#define TEMP_POS_60_THRES_MINUS_X_DEGREE 55
 
 #define TEMP_POS_45_THRESHOLD  45
-#define TEMP_POS_45_THRES_MINUS_X_DEGREE 39
+#define TEMP_POS_45_THRES_MINUS_X_DEGREE 43
 
 #define TEMP_POS_10_THRESHOLD  10
-#define TEMP_POS_10_THRES_PLUS_X_DEGREE 16
+#define TEMP_POS_10_THRES_PLUS_X_DEGREE 12
 
 #define TEMP_POS_0_THRESHOLD  0
-#define TEMP_POS_0_THRES_PLUS_X_DEGREE 6
+#define TEMP_POS_0_THRES_PLUS_X_DEGREE 2
 
 #ifdef CONFIG_MTK_FAN5405_SUPPORT
 #define TEMP_NEG_10_THRESHOLD  0

@@ -403,6 +403,10 @@ static int mtk_compr_offload_gdma_int_prepare(struct snd_compr_stream *stream)
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
 		}
 
+		/* here to set interrupt_distributor */
+		SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, afe_offload_block.period_size);
+		SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, afe_offload_block.samplerate);
+
 		mPrepareDone = true;
 	}
 	return 0;
@@ -434,10 +438,7 @@ static int mtk_compr_offload_gdma_int_start(struct snd_compr_stream *stream)
 	SetHwDigitalGain(OffloadService_GetVolume(), Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1);
 
 
-	irq_add_user(&afe_offload_block,
-		     Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE,
-		     afe_offload_block.samplerate,
-		     afe_offload_block.period_size);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, true);
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_DL2, afe_offload_block.samplerate);
 	SetChannels(Soc_Aud_Digital_Block_MEM_DL2, afe_offload_block.channels);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, true);
@@ -451,10 +452,7 @@ static int mtk_compr_offload_gdma_int_resume(struct snd_compr_stream *stream)
 {
 	afe_offload_block.state = afe_offload_block.pre_state;
 
-	irq_add_user(&afe_offload_block,
-		     Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE,
-		     afe_offload_block.samplerate,
-		     afe_offload_block.period_size);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, true);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, true);
 	SetOffloadEnableFlag(true);
 	OffloadService_ReleaseWriteblocked();
@@ -466,7 +464,7 @@ static int mtk_compr_offload_gdma_int_pause(struct snd_compr_stream *stream)
 {
 	afe_offload_block.pre_state = afe_offload_block.state;
 	afe_offload_block.state = OFFLOAD_STATE_PAUSED;
-	irq_remove_user(&afe_offload_block, Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, false);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, false);
 	SetOffloadEnableFlag(false);
 
@@ -479,7 +477,7 @@ static int mtk_compr_offload_gdma_int_stop(struct snd_compr_stream *stream)
 {
 	pr_warn("%s\n", __func__);
 	afe_offload_block.state = OFFLOAD_STATE_IDLE;
-	irq_remove_user(&afe_offload_block, Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, false);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, false);
 	SetOffloadEnableFlag(false);
 

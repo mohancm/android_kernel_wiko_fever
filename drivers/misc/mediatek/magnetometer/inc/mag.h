@@ -153,9 +153,8 @@ extern int mag_driver_add(struct mag_init_info *obj);
 extern int mag_data_report(enum MAG_TYPE type, int x, int y, int z, int status, int64_t nt);
 extern int mag_register_control_path(struct mag_control_path *ctl);
 extern int mag_register_data_path(struct mag_data_path *ctl);
-/*lenovo-sw caoyi1 add begin*/
-extern struct platform_device *get_mag_platformdev(void);
-/*lenovo-sw caoyi1 add end*/
+
+
 
 
 #endif

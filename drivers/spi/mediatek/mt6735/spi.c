@@ -27,7 +27,7 @@
 #include <linux/of_address.h>
 #endif
 /*#include <mach/irqs.h>*/
-#include "mt_spi.h"
+#include <mt_spi.h>
 #include "mt_spi_hal.h"
 /*#include <mach/mt_gpio.h>*/
 
@@ -48,10 +48,10 @@
 
 /*open base log out*/
 /*#define SPI_DEBUG*/
-#define SPI_DEBUG
+//#define SPI_DEBUG
 /*open verbose log out*/
 /*#define SPI_VERBOSE*/
-#define SPI_VERBOSE
+//#define SPI_VERBOSE
 
 #define IDLE 0
 #define INPROGRESS 1
@@ -1378,11 +1378,6 @@ static int __init mt_spi_probe(struct platform_device *pdev)
 		goto out;
 	}
 	/*hardware can only connect 1 slave.if you want to multiple, using gpio CS */
-	/*lenovo-sw, chenzz3, add dts support for spi master, begin */
-	if (pdev->dev.of_node) {
-		master->dev.of_node = pdev->dev.of_node;
-	}
-	/*lenovo-sw, chenzz3, add dts support for spi master, end */
 	master->num_chipselect = 2;
 
 	master->mode_bits = (SPI_CPOL | SPI_CPHA);
@@ -1418,10 +1413,6 @@ static int __init mt_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "registering interrupt handler fails.\n");
 		goto out;
 	}
-
-	/* lenovo-sw, chenzz3, TEEI-P1, begin */
-	enable_clk(ms);
-	/* lenovo-sw, chenzz3, TEEI-P1, end */
 
 	spi_master_set_devdata(master, ms);
 #if !defined(CONFIG_MTK_CLKMGR)

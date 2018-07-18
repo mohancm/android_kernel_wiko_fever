@@ -16,8 +16,6 @@
 #define MAX_INIT_CNT 256
 #define REGFLAG_DELAY 0xFE
 #endif
-//Lenovo-sw wuwl10 add 20150515 for esd recover backlight
-static bool need_esd_recover_backlight = false;
 
 int _lcm_count(void)
 {
@@ -911,22 +909,6 @@ int disp_lcm_init(disp_lcm_handle *plcm, int force)
 			return -1;
 		}
 
-//Lenovo-sw wuwl10 add 20150515 for esd to recover backlight begin
-		if (need_esd_recover_backlight)
-		{
-			if(lcm_drv->esd_recover_backlight)
-			{
-				if(!disp_lcm_is_inited(plcm) || force)
-				{
-					lcm_drv->esd_recover_backlight();
-				}
-			}
-		}
-		else
-		{
-			need_esd_recover_backlight = true;
-		}
-//Lenovo-sw wuwl10 add 20150515 for esd to recover backlight end
 		return 0;
 	}
 
@@ -1102,62 +1084,6 @@ int disp_lcm_set_backlight(disp_lcm_handle *plcm, int level)
 	DISPERR("lcm_drv is null\n");
 	return -1;
 }
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-int disp_lcm_set_cabc(disp_lcm_handle *plcm, unsigned int mode)
-{
-	LCM_DRIVER *lcm_drv = NULL;
-	DISPFUNC();
-	
-	if(_is_lcm_inited(plcm))
-	{
-		lcm_drv = plcm->drv;
-		if(lcm_drv->set_cabcmode)
-		{
-			lcm_drv->set_cabcmode(mode);
-		}
-		else
-		{
-			DISPERR("FATAL ERROR, lcm_drv->set_cabcmode is null\n");
-			return -1;
-		}
-		
-		return 0;
-	}
-	else
-	{
-		DISPERR("lcm_drv is null\n");
-		return -1;
-	}
-}
-int disp_lcm_set_inverse(disp_lcm_handle *plcm, unsigned int mode)
-{
-	LCM_DRIVER *lcm_drv = NULL;
-	DISPFUNC();
-	
-	if(_is_lcm_inited(plcm))
-	{
-		lcm_drv = plcm->drv;
-		if(lcm_drv->set_inversemode)
-		{
-			lcm_drv->set_inversemode(mode);
-		}
-		else
-		{
-			DISPERR("FATAL ERROR, lcm_drv->set_inversemode is null\n");
-			return -1;
-		}
-		
-		return 0;
-	}
-	else
-	{
-		DISPERR("lcm_drv is null\n");
-		return -1;
-	}
-}
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
 
 
 

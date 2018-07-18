@@ -23,14 +23,25 @@ LCM_DRIVER *lcm_driver_list[] = {
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 	&lcm_common_drv,
 #else
-//lenovo_sw wuwl10 20150727 add for lcm begin
-#if defined(NT35596_FHD_DSI_VDO_TM)
-	&nt35596_fhd_dsi_vdo_tm_lcm_drv,
-#endif	
-#if defined(OTM1901_FHD_DSI_VDO_BOE)
-	&otm1901_fhd_dsi_vdo_boe_lcm_drv,
+#if defined(OTM1901A_FHD_DSI_VDO_DJN_TPS65132)
+		&otm1901a_fhd_dsi_vdo_djn_tps65132_lcm_drv,
 #endif
-//lenovo_sw wuwl10 20150727 add for lcm end
+
+#if defined(OTM1901A_FHD_DSI_VDO_BOE_TPS65132)
+		&otm1901a_fhd_dsi_vdo_boe_tps65132_lcm_drv,
+#endif
+
+#ifdef ILI9881C_HD720_DSI_VDO_DJN
+	&ili9881c_hd720_dsi_vdo_djn_lcm_drv,
+#endif
+
+#ifdef ILI9881C_HD720_DSI_VDO_BOE
+	&ili9881c_hd720_dsi_vdo_boe_lcm_drv,
+#endif
+
+#ifdef ILI9881C_HD720_DSI_VDO_TCL
+	&ili9881c_hd720_dsi_vdo_tcl_lcm_drv,
+#endif
 #if defined(OTM1284A_HD720_DSI_VDO_TM)
 	&otm1284a_hd720_dsi_vdo_tm_lcm_drv,
 #endif

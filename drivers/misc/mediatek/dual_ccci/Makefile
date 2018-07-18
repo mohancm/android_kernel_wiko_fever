@@ -1,4 +1,4 @@
-# include $(srctree)/drivers/misc/mediatek/Makefile.custom
+ include $(srctree)/drivers/misc/mediatek/Makefile.custom
 #CONFIG_MTK_CCCI_DRIVER :=m
 ifeq ($(CONFIG_MTK_CCCI_EXT), y)
 
@@ -31,6 +31,12 @@ ccci-y +=ccci_statistics.o
 
 ifeq ($(CONFIG_MTK_CCCI_DRIVER), y)
 ccflags-y += -DENABLE_CCCI_DRV_BUILDIN
+endif
+
+WIKO_UNIFY_DEF := $(strip $(subst ro.wiko.type =,,$(shell cat $(PWD)/build.ini |grep ^ro.wiko.type)))
+ifeq ($(strip $(WIKO_UNIFY_DEF)),unify)
+ccflags-y += -DCONFIG_WIKO_UNIFY
+$(warning ---add macro CONFIG_WIKO_UNIFY---)
 endif
 
 clean-files += $(patsubst $(obj)/%,%,$(wildcard $(obj)/*~))

@@ -417,7 +417,6 @@ struct input_keymap_entry {
 #define KEY_F23			193
 #define KEY_F24			194
 
-#define KEY_VOICE_WAKEUP    199 /* Voice wakeup */
 #define KEY_PLAYCD		200
 #define KEY_PAUSECD		201
 #define KEY_PROG3		202
@@ -480,9 +479,8 @@ struct input_keymap_entry {
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
-/*add by wengjun1 for touch gesture 2015-12-31 start*/
-#define KEY_SLIDE               254	
-/*add by wengjun1 for touch gesture 2015-12-31 end*/
+#define KEY_HALLOPEN	249	
+#define KEY_HALLCLOSE	250	
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
 

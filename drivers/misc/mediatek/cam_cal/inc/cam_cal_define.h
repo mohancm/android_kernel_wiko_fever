@@ -10,7 +10,7 @@
 typedef struct{
 	u32 u4Offset;
 	u32 u4Length;
-	u32 *pu1Params;  //wuyt3 modify for compile error(warnning)
+	u8 *pu1Params;
 } stCAM_CAL_INFO_STRUCT, *stPCAM_CAL_INFO_STRUCT;
 
 #ifdef CONFIG_COMPAT

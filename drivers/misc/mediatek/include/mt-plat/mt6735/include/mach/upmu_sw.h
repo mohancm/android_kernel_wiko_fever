@@ -2,7 +2,7 @@
 #define _MT_PMIC_UPMU_SW_H_
 
 #define AUXADC_SUPPORT_IMM_CURRENT_MODE
-#define BATTERY_DTS_SUPPORT
+//#define BATTERY_DTS_SUPPORT  //LINE<BUG><EGAFMA-414><disable battery dts support><20160329>huiyong.yin
 
 #define BATTERY_CDP_WORKAROUND
 

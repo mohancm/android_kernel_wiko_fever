@@ -77,6 +77,7 @@
 /* extern int isAEEEnabled; */
 #define DISP_DISABLE_X_CHANNEL_ALPHA
 
+extern char* saved_command_line;//yixuhong 20140414 add to delete lcd_info attr
 /* TODO: revise this later @xuecheng */
 #include "mtkfb_fence.h"
 
@@ -103,10 +104,6 @@ disp_session_input_config *captured_session_input = _session_input[0];
 disp_session_input_config *cached_session_input = _session_input[1];
 disp_mem_output_config *captured_session_output = _session_output[0];
 disp_mem_output_config *cached_session_output = _session_output[1];
-
-#ifdef CONFIG_ALL_IN_TRIGGER_STAGE
-unsigned int is_output_buffer_set = 0;
-#endif
 
 static int mtk_disp_mgr_open(struct inode *inode, struct file *file)
 {
@@ -303,8 +300,6 @@ int disp_destroy_session(disp_session_config *config)
 
 	DISPMSG("disp_destroy_session, 0x%x\n", config->session_id);
 
-	release_session_buffer(DISP_SESSION_TYPE(config->session_id), 0xFF, 0);
-
 	/* 1.To check if this session exists already, and remove it */
 	mutex_lock(&disp_session_lock);
 	for (i = 0; i < MAX_SESSION_COUNT; i++) {
@@ -324,6 +319,7 @@ int disp_destroy_session(disp_session_config *config)
 
 	mutex_unlock(&disp_session_lock);
 
+	release_session_buffer(DISP_SESSION_TYPE(config->session_id), 0xFF, 0);
 #if defined(OVL_TIME_SHARING)
 	if (session == MAKE_DISP_SESSION(DISP_SESSION_MEMORY, 2))
 		ovl2mem_setlayernum(0);
@@ -1619,7 +1615,6 @@ int _ioctl_set_output_buffer(unsigned long arg)
 		mutex_lock(&session_config_mutex);
 		captured_session_output[DISP_SESSION_PRIMARY - 1] = primary_output;
 		mutex_unlock(&session_config_mutex);
-		is_output_buffer_set = 1;
 #else
 		primary_display_config_output(&primary_output, session_id);
 #endif
@@ -2142,6 +2137,65 @@ static const struct file_operations mtk_disp_mgr_fops = {
 	.read = mtk_disp_mgr_read,
 };
 
+#if 1 //yixuhong add start,show lcd info
+char tinno_lcm_name[256] = {"unknow lcd"};
+static void tinno_find_lcd_name(void)
+{
+    char *p, *q;
+
+    p = strstr(saved_command_line, "lcm=");
+    if(p == NULL)
+    {
+        return ;
+    }
+
+    p += 6;
+    if((p - saved_command_line) > strlen(saved_command_line+1))
+    {
+        goto done;
+    }
+
+    printk("%s, %s\n", __func__, p);
+    q = p;
+    while(*q != ' ' && *q != '\0')
+        q++;
+
+    memset((void*)tinno_lcm_name, 0, sizeof(tinno_lcm_name));
+    strncpy((char*)tinno_lcm_name, (const char*)p, (int)(q-p));
+
+    printk("%s, %s\n", __func__, tinno_lcm_name);
+
+done:
+    return ;
+}
+
+static ssize_t lcd_desc_show(struct device *dev,
+                             struct device_attribute *attr,
+                             char *buf)
+{
+    return sprintf(buf, "%s\n", tinno_lcm_name);
+}
+static DEVICE_ATTR(lcm_info, 0444, lcd_desc_show, NULL);
+
+static void tinno_create_attr(struct platform_device *pdev)
+{
+    tinno_find_lcd_name();
+    if(device_create_file(&pdev->dev, &dev_attr_lcm_info))
+    {
+        printk("LIMI==> create lcd_info file error\n");
+    }
+}
+
+static int tinno_delete_attr(struct platform_device *pdev)
+{
+    if(pdev == NULL)
+    {
+        return -EINVAL;
+    }
+    device_remove_file(&pdev->dev, &dev_attr_lcm_info);
+}
+#endif //yixuhong add end,show lcd info
+
 static int mtk_disp_mgr_probe(struct platform_device *pdev)
 {
 	struct class_device;
@@ -2180,12 +2234,13 @@ static int mtk_disp_mgr_probe(struct platform_device *pdev)
 		}
 	}
 #endif
-
+	tinno_create_attr(pdev);//yixuhong 20140414 add to create lcd_info attr
 	return 0;
 }
 
 static int mtk_disp_mgr_remove(struct platform_device *pdev)
 {
+	tinno_delete_attr(pdev);//yixuhong 20140414 add to delete lcd_info attr
 	return 0;
 }
 

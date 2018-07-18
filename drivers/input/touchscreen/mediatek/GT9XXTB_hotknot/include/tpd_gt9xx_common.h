@@ -165,8 +165,12 @@ extern unsigned char gtp_default_FW_fl[];
 */
 /* STEP_3(optional):Custom set some config by themself,if need. */
 #if defined(CONFIG_GTP_CUSTOM_CFG)
+#define GTP_MAX_HEIGHT   800
+#define GTP_MAX_WIDTH    480
 #define GTP_INT_TRIGGER  0	/* 0:Rising 1:Falling */
 #else
+#define GTP_MAX_HEIGHT   1280
+#define GTP_MAX_WIDTH    720
 #define GTP_INT_TRIGGER  1
 #endif
 #define GTP_MAX_TOUCH      5
@@ -191,6 +195,10 @@ extern unsigned char gtp_default_FW_fl[];
 #define SUCCESS                     1
 #define SWITCH_OFF                  0
 #define SWITCH_ON                   1
+#define GT9XX_CTP_VENDOR_DIJING          (0x00)
+#define GT9XX_CTP_VENDOR_SHENYUE         (0x02)
+#define GT9XX_CTP_VENDOR_TCL             (0x05)
+#define GT9XX_CTP_VENDOR_JTOUCH          (0x03)
 
 /* ******************** For GT9XXF Start **********************/
 #if defined(CONFIG_GTP_COMPATIBLE_MODE)
@@ -261,8 +269,12 @@ enum CHIP_TYPE_T {
 #define MAX_I2C_TRANSFER_SIZE         (MAX_TRANSACTION_LENGTH - GTP_ADDR_LENGTH)
 #define TPD_MAX_RESET_COUNT           3
 
+#define TPD_CALIBRATION_MATRIX_ROTATION_NORMAL {-4096, 0, 3276800, 0, -4096, 5242880, 0, 0}
+#define TPD_CALIBRATION_MATRIX_ROTATION_FACTORY {-4096, 0, 3276800, 0, -4096, 5242880, 0, 0}
+
+
 #define TPD_RESET_ISSUE_WORKAROUND
-#define TPD_HAVE_CALIBRATION
+//#define TPD_HAVE_CALIBRATION
 #define TPD_NO_GPIO
 #define TPD_RESET_ISSUE_WORKAROUND
 
@@ -343,7 +355,7 @@ extern int tpd_v_magnify_y;
 extern u8 load_fw_process;
 
 #if defined(CONFIG_GTP_CHARGER_SWITCH)
-extern kal_bool upmu_is_chr_det(void);
+extern bool upmu_is_chr_det(void);
 #endif
 
 #if defined(CONFIG_GTP_CHARGER_DETECT)

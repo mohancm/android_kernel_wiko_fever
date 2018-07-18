@@ -42,7 +42,9 @@
 /*#include <mach/pmic_mt6328_sw.h>*/
 
 #include <mach/mt_pmic.h>
-#include <mach/mt_battery_meter.h>
+//#include <mach/mt_battery_meter.h>
+#include "cust_battery_meter.h"
+
 
 
 /*

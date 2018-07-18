@@ -11,8 +11,9 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <hwmsensor.h>
-#include <hwmsen_dev.h>
+#include <linux/hwmsensor.h>
+#include <linux/earlysuspend.h>
+#include <linux/hwmsen_dev.h>
 
 
 #define STEP_C_TAG					"<STEP_COUNTER> "
@@ -69,7 +70,7 @@ struct step_c_init_info {
 };
 
 struct step_c_data {
-	struct hwm_sensor_data step_c_data;
+	hwm_sensor_data step_c_data;
 	int data_updata;
 	/* struct mutex lock; */
 };
@@ -91,10 +92,8 @@ struct step_c_context {
 	struct timer_list timer;	/* polling timer */
 	atomic_t trace;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_drv;
 	atomic_t early_suspend;
-#endif
 
 	struct step_c_data drv_data;
 	struct step_c_control_path step_c_ctl;
@@ -104,16 +103,13 @@ struct step_c_context {
 	bool is_first_data_after_enable;
 	bool is_polling_run;
 	bool is_batch_enable;	/* version2.this is used for judging whether sensor is in batch mode */
-	bool        is_step_d_active; /* for step detect sensor support, add by liaoxl.lenovo 5.12.2015 */
-	bool        is_sigmot_active; /* for significant motion sensor support, add by liaoxl.lenovo 5.12.2015 */
 };
 
 /* for auto detect */
 typedef enum {
 	TYPE_STEP_NON = 0,
 	TYPE_STEP_DETECTOR = 1,
-	TYPE_SIGNIFICANT = 2,
-	TYPE_STEP_COUNTER = 3
+	TYPE_SIGNIFICANT = 2
 } STEP_NOTIFY_TYPE;
 
 extern int step_notify(STEP_NOTIFY_TYPE type);
@@ -122,6 +118,5 @@ extern int step_c_driver_add(struct step_c_init_info *obj);
 extern int step_c_data_report(struct input_dev *dev, int value, int status);
 extern int step_c_register_control_path(struct step_c_control_path *ctl);
 extern int step_c_register_data_path(struct step_c_data_path *data);
-extern struct platform_device *get_step_platformdev(void);
 
 #endif

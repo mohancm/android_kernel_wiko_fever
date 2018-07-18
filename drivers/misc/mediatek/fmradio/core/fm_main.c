@@ -477,7 +477,7 @@ fm_s32 fm_powerup(struct fm *fm, struct fm_tune_parm *parm)
 	WCN_DBG(FM_DBG | MAIN, "vol=%d!!!\n", tmp_vol);
 
 	/* fm_low_ops.bi.volset(0); */
-	fm->vol = 12;
+	fm->vol = 15;
 	if (fm_low_ops.ri.rds_bci_get) {
 		fm_timer_sys->init(fm_timer_sys, fm_timer_func, (unsigned long)g_fm_struct,
 				   fm_low_ops.ri.rds_bci_get(), 0);

@@ -4677,10 +4677,7 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 	prActFrame = (P_WLAN_ACTION_FRAME) prSwRfb->pvHeader;
 
 	/* DBGLOG(RSN, TRACE, ("[Rx] nicRxProcessActionFrame\n")); */
-	/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-	if (!prSwRfb->prStaRec)
-		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-	/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
+
 #if CFG_SUPPORT_802_11W
 	if ((prActFrame->ucCategory <= CATEGORY_PROTECTED_DUAL_OF_PUBLIC_ACTION &&
 	     prActFrame->ucCategory != CATEGORY_PUBLIC_ACTION &&
@@ -4793,24 +4790,3 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 
 	return WLAN_STATUS_SUCCESS;
 }
-
-/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-
-VOID nicRxMgmtNoWTBLHandling(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
-{
-	/* WTBL error handling. if no WTBL */
-	P_WLAN_MAC_MGMT_HEADER_T prMgmtHdr = (P_WLAN_MAC_MGMT_HEADER_T)prSwRfb->pvHeader;
-
-	prSwRfb->ucStaRecIdx = secLookupStaRecIndexFromTA(prAdapter, prMgmtHdr->aucSrcAddr);
-	if (prSwRfb->ucStaRecIdx >= CFG_NUM_OF_STA_RECORD)
-		return;
-	prSwRfb->prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-
-	if (prSwRfb->prStaRec) {
-		prSwRfb->ucWlanIdx = prSwRfb->prStaRec->ucWlanIndex;
-		DBGLOG(RX, INFO, "current wlan index is %d, dump all used wtbl entry\n");
-	} else
-		DBGLOG(RX, INFO, "not find station record base on TA, dump all used wtbl entry\n");
-}
-/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
-

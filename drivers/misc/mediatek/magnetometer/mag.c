@@ -2,10 +2,8 @@
 #include "accel.h"
 
 struct mag_context *mag_context_obj = NULL;
-/*lenovo-sw caoyi1 add begin*/
-static struct platform_device *pltfm_dev;
-/*lenovo-sw caoyi1 add end*/
 static struct mag_init_info *msensor_init_list[MAX_CHOOSE_G_NUM] = {0};
+static struct platform_device *msensor_plt_dev = NULL;
 
 static void initTimer(struct hrtimer *timer, enum hrtimer_restart (*callback)(struct hrtimer *))
 {
@@ -601,12 +599,15 @@ static int msensor_remove(struct platform_device *pdev)
 	return 0;
 }
 
+struct platform_device* msensor_get_plt_dev(void)
+{
+	return msensor_plt_dev;
+}
+
 static int msensor_probe(struct platform_device *pdev)
 {
 	MAG_LOG("msensor_probe\n");
-/*lenovo-sw caoyi1 add begin*/
-	pltfm_dev = pdev;
-/*lenovo-sw caoyi1 add end*/
+	msensor_plt_dev = pdev;
 	return 0;
 }
 
@@ -686,13 +687,6 @@ int mag_driver_add(struct mag_init_info *obj)
 	return err;
 }
 EXPORT_SYMBOL_GPL(mag_driver_add);
-
-/*lenovo-sw caoyi1 add begin*/
-struct platform_device *get_mag_platformdev(void)
-{
-	return pltfm_dev;
-}
-/*lenovo-sw caoyi1 add end*/
 
 static int mag_misc_init(struct mag_context *cxt)
 {

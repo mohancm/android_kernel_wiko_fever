@@ -591,10 +591,8 @@ int mtkts_bts_get_hw_temp(void)
 
 	bts_cur_temp = t_ret;
 
-/* lixh10 mod for board temp print 20160125 begin */
-	if (t_ret > 30000)	/* abnormal high temp */
+	if (t_ret > 40000)	/* abnormal high temp */
 		pr_debug("[Power/BTS_Thermal] T_AP=%d\n", t_ret);
-/* lixh10 mod for board temp print 20160125 end */
 
 	mtkts_bts_dprintk("[mtkts_bts_get_hw_temp] T_AP, %d\n", t_ret);
 	return t_ret;

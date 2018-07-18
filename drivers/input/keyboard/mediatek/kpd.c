@@ -22,7 +22,7 @@
 #include <linux/clk.h>
 
 #define KPD_NAME	"mtk-kpd"
-//#define MTK_KP_WAKESOURCE	/* this is for auto set wake up source */
+#define MTK_KP_WAKESOURCE	/* this is for auto set wake up source */
 
 void __iomem *kp_base;
 static unsigned int kp_irqnr;
@@ -918,7 +918,17 @@ static int kpd_pdrv_remove(struct platform_device *pdev)
 static int kpd_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	kpd_suspend = true;
-#ifdef MTK_KP_WAKESOURCE
+	
+	//Begin<EGAFM-228><20160316><the screen turn on when press the home button> panzaoyan
+	#if (defined(CONFIG_PROJECT_P4605_TRUNK)) || (defined(CONFIG_PROJECT_P4601_TRUNK)) || (defined(CONFIG_PROJECT_P6601_TRUNK))
+	if (call_status == 2) {
+		kpd_print("kpd_early_suspend wake up source enable!! (%d)\n", kpd_suspend);
+	} else {
+		kpd_wakeup_src_setting(1);
+		kpd_print("kpd_early_suspend wake up source disable!! (%d)\n", kpd_suspend);
+	}
+//#ifdef MTK_KP_WAKESOURCE
+#elif defined(MTK_KP_WAKESOURCE)
 	if (call_status == 2) {
 		kpd_print("kpd_early_suspend wake up source enable!! (%d)\n", kpd_suspend);
 	} else {
@@ -929,7 +939,7 @@ static int kpd_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
 	kpd_print("suspend!! (%d)\n", kpd_suspend);
 	return 0;
 }
-
+//END<EGAFM-228><20160316><the screen turn on when press the home button> panzaoyan
 static int kpd_pdrv_resume(struct platform_device *pdev)
 {
 	kpd_suspend = false;

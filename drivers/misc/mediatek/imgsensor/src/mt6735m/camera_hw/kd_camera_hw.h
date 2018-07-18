@@ -82,7 +82,9 @@ typedef enum {
 	CAMRST,
 	CAM1PDN,
 	CAM1RST,
-	CAMLDO
+	CAMLDO,
+	SUBCAMAVDD,
+	SUBCAMDVDD
 } CAMPowerType;
 extern bool _hwPowerDown(KD_REGULATOR_TYPE_T type);
 extern bool _hwPowerOn(KD_REGULATOR_TYPE_T type, int powerVolt);

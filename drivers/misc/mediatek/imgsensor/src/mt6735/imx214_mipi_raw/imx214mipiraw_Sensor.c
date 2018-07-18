@@ -416,7 +416,7 @@ static kal_uint32 imx214_ATR(UINT16 DarkLimit, UINT16 OverExp)
                                                      sensorATR_Info[OverExp].OverExp_Max_L);
     return ERROR_NONE;
 }
-static void set_dummy()
+static void set_dummy(void)
 {
 	LOG_INF("dummyline = %d, dummypixels = %d \n", imgsensor.dummy_line, imgsensor.dummy_pixel);
        write_cmos_sensor(0x0104, 1);
@@ -1719,7 +1719,7 @@ static void fullsize_setting_HDR(kal_uint16 currefps)
 
 }
 
-static void hs_video_setting()
+static void hs_video_setting(void)
 {
 	LOG_INF("E\n");
 	//1080p 60fps
@@ -1818,7 +1818,7 @@ static void hs_video_setting()
 
 }
 
-static void slim_video_setting()
+static void slim_video_setting(void)
 {
 	LOG_INF("E\n");
 	hs_video_setting();

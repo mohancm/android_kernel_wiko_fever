@@ -60,7 +60,7 @@
 //#include <linux/miscdevice.h>
 //#include <mach/mt6516_pll.h>
 #include <asm/io.h>
-//#include <asm/system.h>
+#include "kd_camera_typedef.h"
 
 #include "kd_camera_hw.h"
 #include "kd_imgsensor.h"

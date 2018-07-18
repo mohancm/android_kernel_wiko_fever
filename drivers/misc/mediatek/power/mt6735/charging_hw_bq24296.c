@@ -9,11 +9,6 @@
 #include <mach/mt_pmic.h>
 #include "bq24296.h"
 
-/*Begin, lenovo-sw mahj2 add 45-50  CV limit fuction,  20150318 */
-#ifdef LENOVO_TEMP_POS_45_TO_POS_50_CV_LiMIT_SUPPORT
-extern kal_bool lenovo_battery_is_temp_45_to_pos_50(void);
-#endif
-/*End, lenovo-sw mahj2 add 45-50  CV limit fuction,  20150318 */
 /* ============================================================ // */
 /* Define */
 /* ============================================================ // */
@@ -183,55 +178,6 @@ static unsigned int bmt_find_closest_level(const unsigned int *pList, unsigned i
 	return temp_param;
 }
 
-
- /*Begin lenovo-sw mahj2 modify for charging terminate as 0.1c */
- #ifdef LENOVO_CHARGING_TERM
-
-int lenovo_charging_stage = 1;
-int lenovo_charging_charger_type;
-
-static unsigned int charging_hw_init(void *data);
-
-void lenovo_charging_term_set_stage(int stage)
-{
-	lenovo_charging_stage = stage;
-}
-
-void lenovo_charging_term_set_stage_2(void)
-{
-	if(lenovo_charging_stage==1)
-	{
-		printk("[LENOVO_CHARGING_TERM] charging full in stage 1. Set as 128\n");
-		lenovo_charging_term_set_stage( 2);
-		bq24296_set_iterm(LENOVO_CHARGING_TERM_CUR_STAGE_2);
-	}
-}
- 
-void lenovo_charging_term_reset_to_stage_2(void)
-{
-	int en = KAL_TRUE;
-
-	lenovo_charging_term_set_stage_2();
-	
-	bq24296_set_en_hiz(1);
-	msleep(10);
-
-	charging_hw_init(&en);
-	
-	bq24296_set_en_hiz(0x0);	            	
-	bq24296_set_chg_config(0x1); // charger enable
-}
-
-void lenovo_charging_term_set_iterm(void)
-{
-	if(lenovo_charging_stage==1)
-		bq24296_set_iterm(LENOVO_CHARGING_TERM_CUR_STAGE_1);//lenovo_charging_set_iterm(CHARGE_CURRENT_200_00_MA);
-	else
-		bq24296_set_iterm(LENOVO_CHARGING_TERM_CUR_STAGE_2);//lenovo_charging_set_iterm(CHARGE_CURRENT_150_00_MA);
-}
-#endif
- /*End lenovo-sw mahj2 modify for charging terminate as 0.1c */
-
 static unsigned int charging_hw_init(void *data)
 {
 	unsigned int status = STATUS_OK;
@@ -243,35 +189,17 @@ static unsigned int charging_hw_init(void *data)
 #endif
 
 	bq24296_set_en_hiz(0x0);
-	//lenovo-sw mahj2 modify at 20150514 Begin
-	//bq24296_set_vindpm(0xA); //VIN DPM check 4.68V
-	bq24296_set_vindpm(0x7);//VIN DPM check 4.44V
-	//lenovo-sw mahj2 modify at 20150514 End
+	bq24296_set_vindpm(0xA);	/* VIN DPM check 4.68V */
 	bq24296_set_reg_rst(0x0);
 	bq24296_set_wdt_rst(0x1);	/* Kick watchdog */
 	bq24296_set_sys_min(0x5);	/* Minimum system voltage 3.5V */
 	bq24296_set_iprechg(0x3);	/* Precharge current 512mA */
-	 /*Begin lenovo-sw mahj2 poring for charging terminate as 0.1c */    
-#ifdef LENOVO_CHARGING_TERM
-	lenovo_charging_term_set_iterm();
-#else
 	bq24296_set_iterm(0x0);	/* Termination current 128mA */
-#endif
-	/*End lenovo-sw mahj2 poring for charging terminate as 0.1c */
 
- /*Begin, lenovo-sw mahj2 add 45-50  CV limit fuction,  20150318 */
-#ifdef LENOVO_TEMP_POS_45_TO_POS_50_CV_LiMIT_SUPPORT
-      if(lenovo_battery_is_temp_45_to_pos_50()) 
-           bq24296_set_vreg(0x26);  //4.1v
-       else
-#endif
-	{
-		if (batt_cust_data.high_battery_voltage_support)
-			bq24296_set_vreg(0x35);	/* VREG 4.352V */
-		else		
-			bq24296_set_vreg(0x2C);	/* VREG 4.208V */
-	}
-/*End, lenovo-sw mahj2 add 45-50  CV limit fuction,  20150318 */
+	if (batt_cust_data.high_battery_voltage_support)
+		bq24296_set_vreg(0x35);	/* VREG 4.352V */
+	else
+		bq24296_set_vreg(0x2C);	/* VREG 4.208V */
 
 	bq24296_set_batlowv(0x1);	/* BATLOWV 3.0V */
 	bq24296_set_vrechg(0x0);	/* VRECHG 0.1V (4.108V) */
@@ -341,14 +269,11 @@ static unsigned int charging_set_cv_voltage(void *data)
 	unsigned int cv_value = *(unsigned int *) (data);
 
 	static short pre_register_value = -1;
-//lenovo-sw mahj2 modify at 20150318 Begin
-#if 0
+
 	if (batt_cust_data.high_battery_voltage_support) {
 		if (cv_value >= BATTERY_VOLT_04_300000_V)
 			cv_value = 4304000;
 	}
-#endif
-//lenovo-sw mahj2 modify at 20150318 End
 
 	/* use nearest value */
 	if (BATTERY_VOLT_04_200000_V == cv_value)

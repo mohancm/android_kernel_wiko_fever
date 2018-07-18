@@ -1017,12 +1017,6 @@ extern void md_status_poller_func(unsigned long data);
 extern void md_status_timeout_func(unsigned long data);
 extern void ccci_subsys_kernel_init(void);
 
-/* Begin lenovo sw linyf add for SWTP func, 2016-02-01, KOLEOSM-4 */
-extern int switch_MD1_Tx_Power(unsigned int mode);
-extern int switch_MD2_Tx_Power(unsigned int mode);
-extern int ccci_get_modem_state(int md_id);
-/* End KOLEOSM-4 */
-
 /*
  * if recv_request returns 0 or -CCCI_ERR_DROP_PACKET, then it's port's duty to free the request, and caller should
  * NOT reference the request any more. but if it returns other error, caller should be responsible to free the request.

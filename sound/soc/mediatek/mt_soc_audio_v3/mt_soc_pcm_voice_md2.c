@@ -266,10 +266,9 @@ static struct page *mtk_pcm_page(struct snd_pcm_substream *substream,
 static int mtk_voice1_ext_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtimeStream = substream->runtime;
-    uint32_t read_reg_value = Afe_Get_Reg(AFE_I2S_CON2);
 
-    printk("mtk_voice1_ext_prepare rate = %d  channels = %d period_size = %lu\n",
-           runtimeStream->rate, runtimeStream->channels, runtimeStream->period_size);
+	pr_warn("mtk_alsa_prepare rate = %d  channels = %d period_size = %lu\n",
+	       runtimeStream->rate, runtimeStream->channels, runtimeStream->period_size);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		pr_warn("%s  with SNDRV_PCM_STREAM_CAPTURE\n", __func__);
@@ -282,40 +281,6 @@ static int mtk_voice1_ext_prepare(struct snd_pcm_substream *substream)
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I09, Soc_Aud_InterConnectionOutput_O04);
 
 	/* start I2S DAC out */
-#if defined(CONFIG_SND_SOC_FLORIDA)
-	{
-         Afe_Set_Reg(AUDIO_TOP_CON1, 0x4,  0x4);  // I2S1/I2S2 SOFT_Reset Hi
-         Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 5)|(0x1 << 6), (0x1 << 5)|(0x1 << 6)); // Sets to 1 to gated I2S1/2 engine clock
-         ConfigAdcI2S(substream);
-         SetI2SAdcIn(&mAudioDigitalI2S);
-         Afe_Set_Reg(AFE_I2S_CON2, read_reg_value&0xFFFFEFFF, 0x1000);  //zhouwl add
-         {
-                   // I2S1 out Setting
-                   uint32 u32AudioI2S = 0, MclkDiv1 = 0, MclkDiv2 = 0;
-                   u32AudioI2S = SampleRateTransform(substream->runtime->rate) << 8;
-                   u32AudioI2S |= Soc_Aud_I2S_FORMAT_I2S << 3; // us3 I2s format
-                   u32AudioI2S |= Soc_Aud_I2S_WLEN_WLEN_16BITS << 1; //16bit
-                   //u32AudioI2S |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode
-
-                   Afe_Set_Reg(AFE_I2S_CON1, u32AudioI2S, 0xFFFFFFFE);
-
-                   MclkDiv1 = SetCLkMclk(Soc_Aud_I2S1, substream->runtime->rate); //select I2S
-                   SetCLkBclk(MclkDiv1,  substream->runtime->rate, substream->runtime->channels, Soc_Aud_I2S_WLEN_WLEN_16BITS);  
-
-                   MclkDiv2 = SetCLkMclk(Soc_Aud_I2S2, substream->runtime->rate); //select I2S
-                   SetCLkBclk(MclkDiv2,  substream->runtime->rate, 2, Soc_Aud_I2S_WLEN_WLEN_16BITS);
-         }
-
-         Afe_Set_Reg(AUDIO_TOP_CON1, (0x0 << 5)|(0x0 << 6), (0x1 << 5)|(0x1 << 6));
-         udelay(200);
-         Afe_Set_Reg(AUDIO_TOP_CON1, 0x0,  0x4);  // // I2S1/I2S2 SOFT_Reset Lo
-
-         SetI2SAdcEnable(true);
-         SetI2SDacEnable(true);
-	}
-    SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
-    SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, true);
-#else
 	SetI2SDacOut(substream->runtime->rate, false, Soc_Aud_I2S_WLEN_WLEN_16BITS);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
 
@@ -325,7 +290,6 @@ static int mtk_voice1_ext_prepare(struct snd_pcm_substream *substream)
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, true);
 	SetI2SAdcEnable(true);
-#endif
 	EnableAfe(true);
 	Voice2IntPcm.mPcmModeWidebandSel =
 		(runtimeStream->rate == 8000) ? Soc_Aud_PCM_MODE_PCM_MODE_8K : Soc_Aud_PCM_MODE_PCM_MODE_16K;

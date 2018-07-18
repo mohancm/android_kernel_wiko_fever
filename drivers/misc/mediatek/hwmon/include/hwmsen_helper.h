@@ -14,10 +14,18 @@
 ******************************************************************************/
 #define C_I2C_FIFO_SIZE         8	/*according i2c_mt6516.c */
 #define HWM_TAG					"<HWMSEN> "
+//#define HWM_DEBUG
+#if defined(HWM_DEBUG)
 #define HWM_FUN(f)				printk(HWM_TAG"%s\n", __func__)
 #define HWM_ERR(fmt, args...)	printk(HWM_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 #define HWM_LOG(fmt, args...)	printk(HWM_TAG fmt, ##args)
 #define HWM_VER(fmt, args...)   printk(HWM_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
+#else
+#define HWM_FUN(f)
+#define HWM_ERR(fmt, args...)
+#define HWM_LOG(fmt, args...)
+#define HWM_VER(fmt, args...)
+#endif
 /******************************************************************************
  * STRUCTURE & ENUMERATION
 ******************************************************************************/

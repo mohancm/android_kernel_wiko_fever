@@ -62,40 +62,6 @@ struct pwm_spec_config {
 		} PWM_MODE_FIFO_REGS;
 
 		/* for memory mode */
-#if CONFIG_SPI_BITBANG //pwm_spi
-	struct _PWM_MODE_MEMORY_REGS {
-	        u32 IDLE_VALUE;
-			u32 GUARD_VALUE;
-			u32 STOP_BITPOS_VALUE;
-			u16 HDURATION;
-			u16 LDURATION;
-			u16 GDURATION;
-			u32 *BUF0_BASE_ADDR;
-			u32 BUF0_SIZE;
-			u32  * BUF1_BASE_ADDR;
-			u32 BUF1_SIZE;
-			u16 WAVE_NUM;
-			u16 PWM_MEMORY_DUR;
-			u32 PWM_MEMORY_CLK;   //0: block clock source, 1: block/1625 clock source
-		}PWM_MODE_MEMORY_REGS;
-			/* for RANDOM mode */
-		struct _PWM_MODE_RANDOM_REGS {
-			u16 IDLE_VALUE;
-			u16 GUARD_VALUE;
-			u32 STOP_BITPOS_VALUE;
-			u16 HDURATION;
-			u16 LDURATION;
-			u16 GDURATION;
-			u32 *BUF0_BASE_ADDR;
-			u32 BUF0_SIZE;
-			u32 *BUF1_BASE_ADDR;
-			u32 BUF1_SIZE;
-			u16 WAVE_NUM;
-			u32 VALID;
-			u16 PWM_RANDOM_DUR;
-			u32 PWM_RANDOM_CLK;
-		} PWM_MODE_RANDOM_REGS;
-#else
 		struct _PWM_MODE_MEMORY_REGS {
 			u32 IDLE_VALUE;
 			u32 GUARD_VALUE;
@@ -123,7 +89,6 @@ struct pwm_spec_config {
 			u16 WAVE_NUM;
 			u32 VALID;
 		} PWM_MODE_RANDOM_REGS;
-#endif
 
 		/* for seq mode */
 		struct _PWM_MODE_DELAY_REGS {
@@ -141,9 +106,6 @@ struct pwm_spec_config {
 
 s32 pwm_set_easy_config(struct pwm_easy_config *conf);
 s32 pwm_set_spec_config(struct pwm_spec_config *conf);
-#if CONFIG_SPI_BITBANG //pwm_spi
-s32 pwm_set_spec_config_for_spi(struct pwm_spec_config *conf_sclk, struct pwm_spec_config *conf_mosi);
-#endif
 
 void mt_pwm_dump_regs(void);
 void mt_pwm_disable(u32 pwm_no, u8 pmic_pad);

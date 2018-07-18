@@ -96,6 +96,8 @@
 #include "AudDrv_Common_func.h"
 #include "AudDrv_Gpio.h"
 
+#include <linux/gpio.h>//yangliang add for operating gpios directly;
+
 /* #define AW8736_MODE_CTRL // AW8736 PA output power mode control */
 
 /* static function declaration */
@@ -159,6 +161,9 @@ static int reg_AFE_VOW_CFG4 = 0x006E;	/* gamma K value setting (gamma), bit4:8 s
 static int reg_AFE_VOW_CFG5 = 0x0001;	/* N mini value setting (Nmin) */
 static bool mIsVOWOn;
 
+extern int spk_ext_pa_gpio;//yangliang add for enable mtk external pa mode-2;
+extern int pin_extspkamp_yl;//yangliang add for enable mtk external pa mode-2;
+	
 /* VOW using */
 typedef enum {
 	AUDIO_VOW_MIC_TYPE_Handset_AMIC = 0,
@@ -1866,6 +1871,10 @@ do { \
 static void Ext_Speaker_Amp_Change(bool enable)
 {
 #define SPK_WARM_UP_TIME        (25)	/* unit is ms */
+
+static bool ext_pa_gpio_requested = false;//yangliang add for external pa D-class and mode-2;20160308
+int ret = 0;
+printk(KERN_ERR"%s-1\n", __func__);
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if defined(CONFIG_MTK_LEGACY)
 	int ret;
@@ -1876,7 +1885,24 @@ static void Ext_Speaker_Amp_Change(bool enable)
 		return;
 	}
 #endif
+	//printk(KERN_ERR"%s-2\n", __func__);
+	//yangliang add for external pa D-class and mode-2;20160308 start
+	//int ret = 0;
+	//static bool ext_pa_gpio_requested = false;
+	printk(KERN_ERR"%s-3 and pin_extspkamp_yl=%d\n", __func__,spk_ext_pa_gpio);
+	if (!gpio_is_valid(spk_ext_pa_gpio)) {
+		printk(KERN_ERR"%s-4\n", __func__);
+		pr_err("%s: Invalid gpio: %d\n", __func__,spk_ext_pa_gpio);
+		return;
+	}
+
+	printk(KERN_INFO"%s: %s external speaker PA\n", __func__,
+		enable ? "Enable" : "Disable");
+	printk(KERN_ERR"%s-5\n", __func__);
+	//yangliang add for external pa D-class and mode-2;20160308 end
+
 	if (enable) {
+		printk(KERN_ERR"%s-6\n", __func__);
 		pr_debug("Ext_Speaker_Amp_Change ON+\n");
 #ifndef CONFIG_MTK_SPEAKER
 #if defined(CONFIG_MTK_LEGACY)
@@ -1894,6 +1920,7 @@ static void Ext_Speaker_Amp_Change(bool enable)
 			mt_set_gpio_out(pin_extspkamp_2, GPIO_OUT_ZERO);	/* low disable */
 		}
 #else
+		printk(KERN_ERR"%s-7\n", __func__);
 		AudDrv_GPIO_EXTAMP_Select(false);
 		AudDrv_GPIO_EXTAMP2_Select(false);
 #endif /*CONFIG_MTK_LEGACY*/
@@ -1913,12 +1940,42 @@ static void Ext_Speaker_Amp_Change(bool enable)
 		if (pin_extspkamp_2 != NULL_PIN_DEFINITION)
 			mt_set_gpio_out(pin_extspkamp_2, GPIO_OUT_ONE);	/* high enable */
 #else
-		AudDrv_GPIO_EXTAMP_Select(true);
-		AudDrv_GPIO_EXTAMP2_Select(true);
+		printk(KERN_ERR"%s-8\n", __func__);
+		AudDrv_GPIO_EXTAMP_Select(false);//true to false;yangliang20160317
+		AudDrv_GPIO_EXTAMP2_Select(false);//true to false;yangliang20160317
 #endif /*CONFIG_MTK_LEGACY*/
 		msleep(SPK_WARM_UP_TIME);
 #endif
 		pr_debug("Ext_Speaker_Amp_Change ON-\n");
+		printk(KERN_ERR"%s-9\n", __func__);
+
+       //yangliang add for external pa D-class and mode-2;20160308 start
+       //AudDrv_GPIO_EXTAMP_Select(true);
+	printk(KERN_INFO"ext_pa_gpio_requested=%d\n", ext_pa_gpio_requested);
+	if(!ext_pa_gpio_requested) {
+		printk(KERN_ERR"%s-10\n", __func__);
+		ret = gpio_request(spk_ext_pa_gpio, "extspkamp"); //pin_extspkamp_yl
+		//ret = gpio_request(pin_extspkamp_yl, "extspkamp-gpio"); //
+		printk(KERN_ERR"%s ret=%d\n",__func__,ret);
+		if (ret) { 
+			printk(KERN_ERR"%s-11\n", __func__);
+			printk(KERN_ERR"%s: gpio_request failed for extspkamp-gpio.\n", 
+				__func__); 
+			return;
+		}
+		printk(KERN_ERR"%s-12\n", __func__);//
+		ext_pa_gpio_requested = true;
+	}
+	gpio_direction_output(spk_ext_pa_gpio,0);;//this is very important;yangliang,qcom also has this problem;
+	printk(KERN_ERR"%s-13\n", __func__);//
+	gpio_set_value(spk_ext_pa_gpio,1);//if use gpio_direction_output,that will consume much more times;yangliang
+       	udelay(1);
+	gpio_set_value(spk_ext_pa_gpio,0);
+       	udelay(1);
+       gpio_set_value(spk_ext_pa_gpio, 1);
+       //yangliang add for external pa D-class and mode-2;20160308 end
+	printk(KERN_ERR"%s-14\n", __func__);//
+	
 	} else {
 		pr_debug("Ext_Speaker_Amp_Change OFF+\n");
 #ifndef CONFIG_MTK_SPEAKER
@@ -1932,8 +1989,10 @@ static void Ext_Speaker_Amp_Change(bool enable)
 			mt_set_gpio_out(pin_extspkamp_2, GPIO_OUT_ZERO);	/* low disbale */
 		}
 #else
+		printk(KERN_ERR"%s-15\n", __func__);//
 		AudDrv_GPIO_EXTAMP_Select(false);
 		AudDrv_GPIO_EXTAMP2_Select(false);
+		gpio_direction_output(spk_ext_pa_gpio,0);//yangliang add for pa mode-2;
 #endif
 		udelay(500);
 #endif

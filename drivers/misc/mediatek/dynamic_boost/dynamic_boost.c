@@ -80,8 +80,6 @@ static void dboost_disable_work(struct work_struct *work)
 		state->active--;
 	spin_unlock_irqrestore(&dboost.boost_lock, flags);
 
-//    printk(KERN_ERR "restore dynamic boost\n");
-
 	atomic_inc(&dboost.event);
 	wake_up(&dboost.wq);
 }
@@ -103,8 +101,6 @@ int set_dynamic_boost(int duration, int prio_mode)
 	if (prio_mode == PRIO_DEFAULT || !duration)
 		return 0;
 
-//    printk(KERN_ERR "receive dynamic boost conf, prio_mode:%d, duration:%d\n", prio_mode, duration);
-
 	spin_lock_irqsave(&dboost.boost_lock, flags);
 
 	state = &dboost.state[prio_mode];
@@ -124,12 +120,9 @@ EXPORT_SYMBOL(set_dynamic_boost);
 
 static int dboost_dvfs_hotplug_thread(void *ptr)
 {
-	int max_freq = 0, cores_to_set_b = 0, cores_to_set_l = 0;
+	int max_freq, cores_to_set_b, cores_to_set_l;
 	unsigned long flags;
-#ifdef CONFIG_CPU_BOOST
-    extern void set_boost_duration(unsigned int ms);
-    extern void set_freq_threshold(unsigned int freq);
-#endif
+
 	set_user_nice(current, -10);
 
 	while (!kthread_should_stop()) {
@@ -225,13 +218,6 @@ static int dboost_dvfs_hotplug_thread(void *ptr)
 			cores_to_set_l = 2;
 			max_freq = 0;
 			break;
-        case PRIO_MIGRATE_CUR_FREQ:
-#ifdef CONFIG_CPU_BOOST
-            set_boost_duration(20);
-            set_freq_threshold(1400000); 
-//            printk("ready to enable boost feature\n");
-#endif      
-            break;
 		case PRIO_RESET:
 			for (i = PRIO_DEFAULT - 1; i >= 0; i--)
 				dboost.state[i].active = 0;
@@ -239,22 +225,18 @@ static int dboost_dvfs_hotplug_thread(void *ptr)
 			cores_to_set_b = 0;
 			cores_to_set_l = 0;
 			max_freq = 0;
-#ifdef CONFIG_CPU_BOOST
-            set_boost_duration(0);
-            set_freq_threshold(0);
-//            printk("finally reset cpu boost feature\n");
-#endif
 			break;
 		}
-        
-		/* interactive_boost_cpu(max_freq); */
+
+		interactive_boost_cpu(max_freq);
 		if (!cores_to_set_l)
 			cores_to_set_l = 1;
 		hps_set_cpu_num_base(BASE_PERF_SERV, cores_to_set_l, cores_to_set_b);
 		/* printk("dynamic boost: Mode=%d cpu_min_num_big=%d cpu_min_num_little=%d\n",
 					set_mode, cores_to_set_b, cores_to_set_l);*/
 
-    	dboost.last_req_mode = set_mode;
+		dboost.last_req_mode = set_mode;
+
 		while (!atomic_read(&dboost.event))
 			wait_event(dboost.wq, atomic_read(&dboost.event));
 
@@ -364,7 +346,7 @@ static int dboost_input_connect(struct input_handler *handler,
 	in->handle.name = "dynamic_boost";
 
 	/* TODO: the following parameters should be configured through platform data */
-	in->prio_mode = PRIO_MIGRATE_CUR_FREQ;
+	in->prio_mode = PRIO_TWO_BIGS_TWO_LITTLES_MAX_FREQ;
 	in->duration = 150;
 
 	error = input_register_handle(&in->handle);

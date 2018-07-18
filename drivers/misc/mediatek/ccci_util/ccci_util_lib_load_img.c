@@ -34,6 +34,12 @@
 #define ENABLE_MEM_SIZE_CHECK
 #define MAX_MD_NUM (6)		/* Max 4 internal + Max 2 exteranl */
 
+/// wanglj, DATE20160225, NOTE, Bug EGAFMA-118 START {
+#ifdef CONFIG_WIKO_UNIFY
+extern char* Market_Area;
+#endif
+/// wanglj, Bug EGAFMA-118 END }
+
 /*==================================================== */
 /* Image process section */
 /*==================================================== */
@@ -86,8 +92,23 @@ int scan_image_list(int md_id, char fmt[], int out_img_list[], int img_list_size
 	char img_name[32] = { 0 };
 	struct file *filp = NULL;
 
+
 	for (i = 0; i < (sizeof(type_str) / sizeof(char *)); i++) {
-		snprintf(img_name, 32, fmt, md_id + 1, type_str[i]);
+/// wanglj, DATE20160225, NOTE, Bug EGAFMA-118 START {
+#ifdef CONFIG_WIKO_UNIFY
+        if(strstr(fmt, "modem_"))
+        {
+            snprintf(img_name, 32, "modem_%d_%s_n_%s.img", md_id + 1, type_str[i], Market_Area);
+        }
+        else
+        {
+            snprintf(img_name, 32, fmt, md_id + 1, type_str[i]);
+        }
+#else
+        snprintf(img_name, 32, fmt, md_id + 1, type_str[i]);
+#endif
+/// wanglj, Bug EGAFMA-118 END }
+
 		/* Find at CIP first */
 		snprintf(full_path, 64, "%s%s", CONFIG_MODEM_FIRMWARE_CIP_PATH, img_name);
 		CCCI_UTIL_INF_MSG_WITH_ID(md_id, "Find:%s\n", full_path);
@@ -736,7 +757,12 @@ static int load_cipher_firmware_v2(int md_id,
 }
 #endif
 
+/// wanglj, DATE20160225, NOTE, Bug EGAFMA-118 LINE
+#ifdef CONFIG_WIKO_UNIFY
+static void _get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
+#else
 static void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
+#endif
 {
 	/* name format: modem_X_YY_K_Ex.img */
 	int X, Ex = 0;
@@ -815,6 +841,31 @@ static void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 		CCCI_UTIL_DBG_MSG_WITH_ID(md_id, "MD%d image postfix=%s\n", md_id + 1, buf_ex);
 	}
 }
+
+/// wanglj, DATE20160225, NOTE, Bug EGAFMA-118 START {
+#ifdef CONFIG_WIKO_UNIFY
+static void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
+{
+    char suffix[IMG_POSTFIX_LEN];
+    char suffix_ex[IMG_POSTFIX_LEN];
+
+    _get_md_postfix(md_id, k, buf, buf_ex);
+
+    snprintf(suffix, IMG_POSTFIX_LEN, "_%s",  Market_Area);
+    snprintf(suffix_ex, IMG_POSTFIX_LEN, "_%s",  Market_Area);
+
+    if (buf){
+        strcat(buf, suffix);
+        printk("==========get_md_postfix buf=%s==========\n",buf);
+    }
+
+    if (buf_ex){
+        strcat(buf_ex, suffix_ex);
+        printk("==========get_md_postfix buf=%s==========\n",buf_ex);
+    }
+}
+#endif
+/// wanglj, Bug EGAFMA-118 END }
 
 static struct file *open_img_file(char *name, int *sec_fp_id)
 {

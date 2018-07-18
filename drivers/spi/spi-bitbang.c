@@ -28,7 +28,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 
-//#define SUPPORT_GPIO_SPI_FUNC
+
 /*----------------------------------------------------------------------*/
 
 /*
@@ -270,7 +270,6 @@ static int spi_bitbang_prepare_hardware(struct spi_master *spi)
 	return 0;
 }
 
-extern size_t pwm_write( struct device *dev ,const void *val, size_t val_len);
 static int spi_bitbang_transfer_one(struct spi_master *master,
 				    struct spi_message *m)
 {
@@ -282,11 +281,6 @@ static int spi_bitbang_transfer_one(struct spi_master *master,
 	int			do_setup = -1;
 	struct spi_device	*spi = m->spi;
 
-#if 1 //pwm_spi
-		int data_len4 = 0 ;
-		int byte_len = 0;
-		//size_t pwm_sts=0;
-#endif
 	bitbang = spi_master_get_devdata(master);
 
 	/* FIXME this is made-up ... the correct value is known to
@@ -341,22 +335,7 @@ static int spi_bitbang_transfer_one(struct spi_master *master,
 			 */
 			if (!m->is_dma_mapped)
 				t->rx_dma = t->tx_dma = 0;
-			if(t->len >= 20)
-			{
-				data_len4 = (t->len/4)*4 ;
-				byte_len = t->len%4;
-				status = pwm_write(spi,t->tx_buf,data_len4);
-				//printk("pwm sts=%ld\n",status);
-				if(byte_len!=0)
-				{
-					t->tx_buf = t->tx_buf+data_len4;
-					t->len = byte_len ;
-				}
-			}
-			if(t->len < 20)
-			{
-				status = bitbang->txrx_bufs(spi, t);
-			}
+			status = bitbang->txrx_bufs(spi, t);
 		}
 		if (status > 0)
 			m->actual_length += status;
@@ -382,106 +361,6 @@ static int spi_bitbang_transfer_one(struct spi_master *master,
 			ndelay(nsecs);
 		}
 	}
-	
-if(status == -EREMOTEIO)
-{
-	nsecs = 100;
-	cs_change = 1;
-	status = 0;
-	t = NULL;
-
-	ndelay(nsecs);
-	bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
-	ndelay(nsecs);
-	
-	list_for_each_entry(t, &m->transfers, transfer_list) {
-
-		/* override speed or wordsize? */
-		if (t->speed_hz || t->bits_per_word)
-			do_setup = 1;
-
-		/* init (-1) or override (1) transfer params */
-		if (do_setup != 0) {
-			if (bitbang->setup_transfer) {
-				status = bitbang->setup_transfer(spi, t);
-				if (status < 0)
-					break;
-			}
-			if (do_setup == -1)
-				do_setup = 0;
-		}
-
-		/* set up default clock polarity, and activate chip;
-		 * this implicitly updates clock and spi modes as
-		 * previously recorded for this device via setup().
-		 * (and also deselects any other chip that might be
-		 * selected ...)
-		 */
-		if (cs_change) {
-			bitbang->chipselect(spi, BITBANG_CS_ACTIVE);
-			ndelay(nsecs);
-		}
-		cs_change = t->cs_change;
-		if (!t->tx_buf && !t->rx_buf && t->len) {
-			status = -EINVAL;
-			break;
-		}
-
-		/* transfer data.  the lower level code handles any
-		 * new dma mappings it needs. our caller always gave
-		 * us dma-safe buffers.
-		 */
-		if (t->len) {
-			/* REVISIT dma API still needs a designated
-			 * DMA_ADDR_INVALID; ~0 might be better.
-			 */
-			if (!m->is_dma_mapped)
-				t->rx_dma = t->tx_dma = 0;
-			if(t->len >= 20)
-			{
-				data_len4 = (t->len/4)*4 ;
-				byte_len = t->len%4;
-				status = pwm_write(spi,t->tx_buf,data_len4);
-				//if(pwm_sts==0)
-				//	status=0;
-				//printk("pwm sts=%ld\n",status);
-				if(byte_len!=0)
-				{
-					t->tx_buf = t->tx_buf+data_len4;
-					t->len = byte_len ;
-				}
-			}
-			if(t->len < 20)
-			{
-				status = bitbang->txrx_bufs(spi, t);
-				//	printk("gpio sts=%d\n",status);
-			}
-		}
-		if (status > 0)
-			m->actual_length += status;
-		if (status != t->len) {
-			/* always report some kind of error */
-			if (status >= 0)
-				status = -EREMOTEIO;
-			break;
-		}
-		status = 0;
-
-		/* protocol tweaks before next transfer */
-		if (t->delay_usecs)
-			udelay(t->delay_usecs);
-
-		if (cs_change &&
-		    !list_is_last(&t->transfer_list, &m->transfers)) {
-			/* sometimes a short mid-message deselect of the chip
-			 * may be needed to terminate a mode or command
-			 */
-			ndelay(nsecs);
-			bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
-			ndelay(nsecs);
-		}
-	}
-}
 
 	m->status = status;
 

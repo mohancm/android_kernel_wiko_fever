@@ -59,7 +59,7 @@
 /**
  * Enable Ovl time-sharing.
  */
-#define OVL_TIME_SHARING
+// #define OVL_TIME_SHARING // Jiangde GABM-316
 
 /**
  * Build CMDQ command in trigger stage.

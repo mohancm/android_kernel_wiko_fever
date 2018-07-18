@@ -65,7 +65,7 @@
 #include <linux/gpio/consumer.h>
 #endif
 #include <mt-plat/upmu_common.h>
-#include "pmic.h"
+#include <pmic.h>
 /*#include <mach/eint.h> TBD*/
 #include <mach/mt_pmic_wrap.h>
 #if defined CONFIG_MTK_LEGACY
@@ -86,9 +86,10 @@
 #if defined(CONFIG_MTK_SMART_BATTERY)
 #include <mt-plat/battery_meter.h>
 #include <mt-plat/battery_common.h>
-#include <mach/mt_battery_meter.h>
+//#include <mach/mt_battery_meter.h>
+#include "cust_battery_meter.h"
 #endif
-#include "mt6311.h"
+#include <mt6311.h>
 #include <mach/mt_pmic.h>
 
 #include <mt-plat/aee.h>
@@ -4002,14 +4003,6 @@ void PMIC_INIT_SETTING_V1(void)
 	ret = pmic_config_interface(0x4E6, 0x0, 0x3, 0); /* [1:0]: VLTE slow slew rate  */
 	ret = pmic_config_interface(0x648, 0x0, 0x3, 0); /* [1:0]: VSYS slow slew rate  */
 	ret = pmic_config_interface(0x64A, 0x0, 0x3, 0); /* [1:0]: VSYS slow slew rate  */
-#endif
-
-#if defined(CONFIG_SND_SOC_FLORIDA)
-	ret = pmic_config_interface(0x246,0x1,0x1,5); //
-	ret = pmic_config_interface(0x6000,0x1,0x1,4); //
-	ret = pmic_config_interface(0x60c0,0x1,0x7,12); //
-
-	pmic_set_register_value(PMIC_RG_VCN33_EN_BT,1); 
 #endif
 }
 

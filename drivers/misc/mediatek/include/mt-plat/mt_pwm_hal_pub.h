@@ -27,7 +27,7 @@
 #define EEXCESSBITS 5
 #define EINVALID 6
 
-//#define PWM_DEBUG
+#define PWM_DEBUG
 #ifdef PWM_DEBUG
 #define PWMDBG(fmt, args ...)  pr_debug("pwm %5d: " fmt, __LINE__, ##args)
 #else
@@ -84,21 +84,4 @@ void mt_set_pwm_buf0_addr_hal(uint32_t pwm_no, uint32_t *addr);
 void mt_set_pwm_buf0_size_hal(uint32_t pwm_no, uint16_t size);
 
 int mt_get_pwm_clk_src(struct platform_device *pdev);
-
-#if CONFIG_SPI_BITBANG //pwm_spi
-void mt_set_pwm_seqmode_multiport_enable_hal(uint32_t pwm_no_sclk, uint32_t pwm_no_mosi);
-void mt_set_pwm_buf1_addr_hal(u32 pwm_no, u32 *addr);
-void mt_set_pwm_buf1_size_hal(uint32_t pwm_no, uint16_t size);
-void mt_set_pwm_enable_ahb_hal(uint32_t bit);
-void ultra_24_hal(uint32_t bit);
-void ultra_16_hal(uint32_t bit);
-void ultra_4_hal(uint32_t bit);
-//void dcm_hal(uint32_t bit);
-void mt_set_pwm_valid_hal( uint32_t pwm_no, uint32_t buf_valid_bit);
-//void dcm_cfg_hal(uint32_t bit);
-
-void mt_set_pwm_delay_duration_hal(uint32_t pwm_no, uint16_t val);
-void mt_set_pwm_delay_clock_hal(uint32_t pwm_no, uint32_t clksrc);
-#endif
-
 #endif

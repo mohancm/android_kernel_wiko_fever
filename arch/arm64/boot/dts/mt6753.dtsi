@@ -74,11 +74,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 		compatible = "mediatek, msdc1_ins-eint";
 	};
 	};
-/* lenovo linyf add for SWTP func, 2016-01-27 begin*/
-	swtp: swtp@ {
-			compatible = "mediatek, swtp-eint";
-	};
-/* lenovo linyf add for SWTP func, 2016-01-27 end*/
+
 	psci {
 		compatible  = "arm,psci";
 		method      = "smc";
@@ -389,14 +385,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			compatible = "mediatek,gpio";
 			reg = <0x10211000 0x1000>;
 		};
-		spigpio@0 {
-			compatible = "mediatek,spi-gpio";
-			gpio-sck = <21 0>;
-			gpio-miso = <44 0>;
-			gpio-mosi = <59 0>;
-			cs-gpios = <70 0>;
-			num-css = <1>;
-		};
+
 		dramc_nao: dramc_nao@1020e000 {
 			compatible = "mediatek,mt6735-dramc_nao";
 			reg = <0x1020e000 0x1000>;
@@ -967,24 +956,6 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			spi-padmacro = <0>;
 			reg = <0x1100a000 0x1000>;
 			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_LOW>;
-
-			/*lenovo-sw, chenzz3, configure slave device as a fingerprint device, begin*/
-			fpc1020@1 {
-				status = "ok";
-				compatible = "fpc,fpc1020";
-				reg = <1>;
-				spi-max-frequency = <4800000>;
-				input-device-name = "fpc1020";
-				fpc,gpio_rst    = <20>;
-				fpc,gpio_irq    = <7>;
-				fpc,use_fpc2050 = <1>;
-				fpc,enable-on-boot;
-				fpc,enable-wakeup;
-				/* EV_MSC, MSC_SCAN */
-				fpc,event-type = <4>;
-				fpc,event-code = <4>;
-			};
-			/*lenovo-sw, chenzz3, configure slave device as a fingerprint device, end*/
 		};
 		btif_tx:btif_tx@11000900 {
 			compatible = "mediatek,btif_tx";
@@ -1214,6 +1185,18 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			reg = <0x15008000 0x1000>;  /* SENINF_ADDR */
 		};
 
+		mhall: mhall {
+			compatible = "mediatek, mhall-eint";
+		};
+
+		flash_light: flashlight@0 {
+			compatible = "mediatek,strobe_gpio";
+		};
+
+		tinno_hall: hall@0 {
+			compatible = "mediatek, hall";
+		};
+
 		SENINF_TOP@0x15008000 {
 			compatible = "mediatek,SENINF_TOP";
 			reg = <0x15008000 0x1000>;
@@ -1295,28 +1278,11 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			compatible = "mediatek, ext_buck_oc-eint";
 			status = "disabled";
 		};
-                //lenovo wengjun1 20160126 add for DSI_TE gpio configruation begin
-                dsi_te_1: dsi_te_1 {
-                        compatible = "mediatek, dsi_te_1-eint";
-                        status = "disabled";
-                };
-                //lenovo wengjun1 20160126 add for DSI_TE gpio configruation end
-
-                dsi_te: dsi_te {
-                        compatible = "mediatek, dsi_te_1-eint";
-                        status = "disabled";
-                };
-
-/*Lenovo-sw weimh1 add 2016-3-3 begin:add for accel*/
-		accel_gyro_int1: accel_gyro_int1{
-			compatible = "mediatek, accel_gyro_int1-eint";
-		};
-
-		accel_gyro_int2: accel_gyro_int2{
-			compatible = "mediatek, accel_gyro_int2-eint";
+		dsi_te: dsi_te {
+			compatible = "mediatek, dsi_te_1-eint";
+			status = "disabled";
 		};
 	};
-/*Lenovo-sw weimh1 add 2016-3-3 end:add for accel*/
 
 	vcorefs {
 		compatible = "mediatek,mt6735-vcorefs";
@@ -1545,15 +1511,15 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 		ssw:simswitch@0 {
 			compatible = "mediatek,sim_switch";
 			pinctrl-names =	"default",
-					//"hot_plug_mode1",
-					//"hot_plug_mode2",
+					"hot_plug_mode1",
+					"hot_plug_mode2",
 					"two_sims_bound_to_md1",
 					"sim1_md3_sim2_md1";
 			pinctrl-0 = <&ssw_default>;
-			//pinctrl-1 = <&ssw_hot_plug_mode1>;
-			//pinctrl-2 = <&ssw_hot_plug_mode2>;
-			pinctrl-1 = <&ssw_two_sims_bound_to_md1>;
-			pinctrl-2 = <&ssw_sim1_md3_sim2_md1>;
+			pinctrl-1 = <&ssw_hot_plug_mode1>;
+			pinctrl-2 = <&ssw_hot_plug_mode2>;
+			pinctrl-3 = <&ssw_two_sims_bound_to_md1>;
+			pinctrl-4 = <&ssw_sim1_md3_sim2_md1>;
 		};
 
 		EFUSEC@10206000 {
@@ -1610,8 +1576,8 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			      <0x10206514 0x000c>,  /*DISP_DPI_EFUSE_PERMISSION */
 			      <0x10206558 0x000c>,  /*DISP_DPI_EFUSE_KEY */
 			      <0x102100a0 0x1000>,  /*DISP_TVDPLL_CFG6 */
-			      <0x10209260 0x1000>,  /*DISP_TVDPLL_CON0 */
-			      <0x10209264 0x1000>,  /*DISP_TVDPLL_CON1 */
+			      <0x10209270 0x1000>,  /*DISP_TVDPLL_CON0 */
+			      <0x10209274 0x1000>,  /*DISP_TVDPLL_CON1 */
 			      <0x14012000 0x1000>,  /*DISP_OD      */
 			      <0x10209000 0x1000>;  /*DISP_VENCPLL      */
 
@@ -1691,10 +1657,10 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 		/* NFC start */
 		nfc:nfc@0 {
 			compatible = "mediatek,nfc-gpio-v2";
-			gpio-ven = <17>;
-			gpio-rst = <143>;
-			gpio-eint = <145>;
-			gpio-irq = <144>;
+			gpio-ven = <4>;
+			gpio-rst = <3>;
+			gpio-eint = <1>;
+			gpio-irq = <2>;
 		};
 		/* NFC end */
 		btcvsd@10000000 {
@@ -1716,32 +1682,6 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			reg = <0x180F0000 0x005c>;
 			interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_LOW>;
 		};
-		/* Connectivity */
-		connectivity:mediatek,connectivity-combo{
-			compatible = "mediatek,connectivity-combo";
-			/*gpio_combo_ldo_en_pin = <&pio 0xffff 0>; /*0) GPIO_COMBO_LDO_EN_PIN */
-			/*gpio_combo_pmuv28_en_pin = <&pio 0xffff 0>; /*1) GPIO_COMBO_PMUV28_EN_PIN*/
-			gpio_combo_pmu_en_pin = <&pio 57 0>;       /*2) GPIO_COMBO_PMU_EN_PIN*/
-			gpio_combo_rst_pin = <&pio 86 0>;	       /*3) GPIO_COMBO_RST_PIN*/
-			/*gpio_combo_bgf_eint_pin = <&pio 92 0>;  /*4) GPIO_COMBO_BGF_EINT_PIN*/
-			gpio_wifi_eint_pin = <&pio 92 0>;          /*5) GPIO_WIFI_EINT_PIN*/
-			/*gpio_all_eint_pin = <&pio 0xffff 0>;        /*6) GPIO_ALL_EINT_PIN*/
-			gpio_combo_urxd_pin = <&pio 1 0>;          /*7) GPIO_COMBO_URXD_PIN*/
-			gpio_combo_utxd_pin = <&pio 2 0>;          /*8) GPIO_COMBO_UTXD_PIN*/
-			gpio_pcm_daiclk_pin = <&pio 184 0>;         /*9) GPIO_PCM_DAICLK_PIN*/
-			gpio_pcm_daipcmin_pin = <&pio 185 0>;       /*10) GPIO_PCM_DAIPCMIN_PIN*/
-			gpio_pcm_daipcmout_pin = <&pio 187 0>;      /*11) GPIO_PCM_DAIPCMOUT_PIN*/
-			gpio_pcm_daisync_pin = <&pio 188 0>;        /*12) GPIO_PCM_DAISYNC_PIN*/
-			/*gpio_combo_i2s_ck_pin = <&pio 0xffff 0>;     /*13) GPIO_COMBO_I2S_CK_PIN*/
-			/*gpio_combo_i2s_ws_pin = <&pio 0xffff 0>;     /*14) GPIO_COMBO_I2S_WS_PIN*/
-			/*gpio_combo_i2s_dat_pin = <&pio 0xffff 0>;    /*15) GPIO_COMBO_I2S_DAT_PIN*/
-			gpio_gps_sync_pin = <&pio 19 0>;            /*16) GPIO_GPS_SYNC_PIN*/
-			gpio_gps_lna_pin = <&pio 129 0>;            /*17) GPIO_GPS_LNA_PIN*/
-			interrupt-parent = <&eintc>;
-			interrupts = <92 IRQ_TYPE_LEVEL_LOW>;
-			debounce = <92 0>;
-			status = "okay";
-		};
 		usb0:usb20@11200000 {
 			compatible = "mediatek,mt6735-usb20";
 			cell-index = <0>;
@@ -1758,7 +1698,8 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			clocks = <&perisys PERI_USB0>;
 			clock-names = "usb0";
 			VUSB33-supply = <&mt_pmic_vusb33_ldo_reg>;
-			drvvbus_gpio = <83 2>;
+			iddig_gpio = <54 3>;
+			drvvbus_gpio = <66 2>;
 		};
 
 		audio@11220000 {
@@ -1766,8 +1707,8 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			reg = <0x11220000 0x10000>;
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
 		};
-
-		audgpio:mt_soc_dl1_pcm@11220000 {
+/*JSTINNO_SRC xiaoyan.yu,  modify for 5460, DATE20160126-01 LINE*/
+		audgpio:mt_soc_dl1_pcm@11220000 { 
 			compatible = "mediatek,mt-soc-dl1-pcm";
 			reg = <0x11220000 0x1000>;
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
@@ -1775,11 +1716,12 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			audmiso-gpio = <144 0>;
 			audmosi-gpio = <145 0>;
 			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <117 0>;
+			extspkamp-gpio = <9 0>;
+		/*yixuhong 20160519 delete 
 			i2s1clk-gpio = <80 0>;
 			i2s1dat-gpio = <78 0>;
 			i2s1mclk-gpio = <9 0>;
-			i2s1ws-gpio = <79 0>;
+			i2s1ws-gpio = <79 0>;*/
 		};
 
 		mt_soc_ul1_pcm@11220000 {
@@ -1984,75 +1926,30 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 		m_baro_pl@0 {
 			compatible = "mediatek,m_baro_pl";
 		};
-/*lenovo-sw caoyi modify begin*/
-		mag:msensor@0 {
+		msensor@0 {
 			compatible = "mediatek,msensor";
+			pinctrl-names = "default";
+			pinctrl-0 = <&AKM_pins_rst_output1>;
 		};
-/*lenovo-sw caoyi modify end*/
 		m_mag_pl@0 {
 			compatible = "mediatek,m_mag_pl";
 		};
 		orientation@0 {
 			compatible = "mediatek,orientation";
-	}; 
-		strobe_main1@0{
-		compatible = "mediatek,strobe_main1";
 	};
-		s5k3m2_cal@0{
-		compatible = "mediatek,s5k3m2_cal";
-	};
-/*Lenovo-sw weimh1 add 2016-3-3 begin:add for accel*/
-		step_counter@0 {
-			compatible = "mediatek,step_counter";
-		};
-		m_step_c_pl@0 {
-			compatible = "mediatek,m_step_c_pl";
-		};
-		gsensor:accel@0 {
-			compatible = "mediatek,gsensor";
-		};
-/*Lenovo-sw weimh1 add 2016-3-3 end:add for accel*/
+
 /* sensor end */
 
-	mt8193ckgen: mt8193ckgen@0 {
+	mt8193ckgen@0 {
 		compatible = "mediatek,mt8193-ckgen";
 	};
 
-	mt8193_bridge: multibridge@0 {
+	multibridge@0 {
 		compatible = "mediatek,multibridge";
 	};
-}; 
+};
 
 #include "cust.dtsi"
-
-&mt8193ckgen {
-	pinctrl-names = "default", "bus_switch_gpio", "bus_switch_dpi";
-	pinctrl-0 = <&mt8193ckgen_pins_default>;
-	pinctrl-1 = <&mt8193ckgen_pins_gpio>;
-	pinctrl-2 = <&mt8193ckgen_pins_dpi>;
-	bus_switch_pin = <&pio 0 0>;
-	status = "okay";
-};
-
-&pio {
-	mt8193ckgen_pins_default: 8193ckgen_default {
-	};
-
-	mt8193ckgen_pins_gpio: 8193ckgen_gpio {
-		pins_cmd_dat {
-			pins = <PINMUX_GPIO0__FUNC_GPIO0>;
-			slew-rate = <1>;
-			bias-pull-up = <00>;
-			output-high;
-		};
-	};
-
-	mt8193ckgen_pins_dpi: 8193ckgen_dpi {
-		pins_cmd_dat {
-			pins = <PINMUX_GPIO0__FUNC_DPI_D4>;
-		};
-	};
-};
 
 &eintc {
 	pmic@206 {
@@ -2061,20 +1958,11 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 	interrupts = <206 4>;
 	debounce = <206 1000>;
 	};
-
-/*lenovo-sw caoyi add begin*/
-	FPC_INT@7 {
-		compatible = "mediatek, FPC_INT-eint";
-		interrupt-parent = <&eintc>;
-		interrupts = <7 1>;
-		debounce = <7 1000>;
-	};
-/*lenovo-sw caoyi add end*/
 };
 &pio {
 	ssw_default:ssw0default {
 	};
-/*
+
 	ssw_hot_plug_mode1:ssw@1 {
 
 		pins_cmd0_dat {
@@ -2096,8 +1984,8 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			pins = <PINMUX_GPIO9__FUNC_MD_EINT2>;
 		};
 	};
-*/
-	ssw_two_sims_bound_to_md1:ssw@1 {
+
+	ssw_two_sims_bound_to_md1:ssw@3 {
 		pins_cmd0_dat {
 			pins = <PINMUX_GPIO163__FUNC_MD_SIM1_SCLK>;
 			slew-rate = <1>;
@@ -2132,7 +2020,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 		};
 	};
 
-	ssw_sim1_md3_sim2_md1:ssw@2 {
+	ssw_sim1_md3_sim2_md1:ssw@4 {
 		pins_cmd0_dat {
 			pins = <PINMUX_GPIO163__FUNC_UIM0_CLK>;
 		};

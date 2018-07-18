@@ -43,14 +43,3 @@ config MTK_DYNAMIC_BAT_CV_SUPPORT
 	to AP and no need to use AuxADC
 	to get battery voltage.
 
-#lenovo-sw mahj2 for bq24296 Begin
-config MTK_BQ24296_SUPPORT
-	bool "MTK_BQ24296_SUPPORT"
-	default n
-	---help---
-	Mediatek TI BQ24296 driver.
-	Set y to support this driver.
-	Set n and choose other chargers.
-	This driver uses I2c bus.
-#lenovo-sw mahj2 for bq24296 End
-

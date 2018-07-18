@@ -1,3 +1,0 @@
-config EFUSE_SBC_CHECK
-	bool "efuse_sbc_flag"
-	default y

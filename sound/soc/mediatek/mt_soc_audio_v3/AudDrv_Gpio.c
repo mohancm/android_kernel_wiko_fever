@@ -255,6 +255,17 @@ int AudDrv_GPIO_EXTAMP_Select(int bEnable)
 {
 	int retval = 0;
 
+	
+	#if 0
+	int i;
+	pr_debug("AudDrv_GPIO_EXTAMP_Select bEnable:%d\n",bEnable);
+
+
+	for ( i = 0; i < ARRAY_SIZE(aud_gpios); i++) {
+         pr_debug("AudDrv_GPIO_EXTAMP_Select name:%s,gpio_prepare:%d\n",aud_gpios[i].name,aud_gpios[i].gpio_prepare);
+	}
+	#endif
+	
 	if (bEnable == 1) {
 		if (aud_gpios[GPIO_EXTAMP_HIGH].gpio_prepare) {
 			retval =

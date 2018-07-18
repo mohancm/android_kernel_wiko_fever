@@ -24,4 +24,3 @@ config MICROTRUST_FP_DRIVER
 	default y
 	---help---
 	  Enable TEEI Fingerprint Driver
-

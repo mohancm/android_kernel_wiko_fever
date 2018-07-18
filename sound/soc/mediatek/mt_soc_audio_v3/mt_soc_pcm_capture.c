@@ -101,19 +101,10 @@ static void StopAudioCaptureHardware(struct snd_pcm_substream *substream)
 	pr_warn("StopAudioCaptureHardware\n");
 
 	/* here to set interrupt */
-#if defined(CONFIG_SND_SOC_FLORIDA)
-   SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
-   if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == false)
-   {
-	   SetI2SAdcEnable(false);
-	   SetI2SDacEnable(false);
-   }
-#endif
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_VUL, false);
 
-	/* here to set interrupt */
-	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, false);
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, false);
 	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC) == false)
@@ -135,11 +126,7 @@ static void ConfigAdcI2S(struct snd_pcm_substream *substream)
 	mAudioDigitalI2S->mloopback = 0;
 	mAudioDigitalI2S->mINV_LRCK = Soc_Aud_INV_LRCK_NO_INVERSE;
 	mAudioDigitalI2S->mI2S_FMT = Soc_Aud_I2S_FORMAT_I2S;
-#if defined(CONFIG_SND_SOC_FLORIDA)
-    mAudioDigitalI2S->mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_32BITS; //Soc_Aud_I2S_WLEN_WLEN_16BITS;
-#else
 	mAudioDigitalI2S->mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_16BITS;
-#endif
 	mAudioDigitalI2S->mI2S_SAMPLERATE = (substream->runtime->rate);
 }
 
@@ -147,50 +134,20 @@ static void StartAudioCaptureHardware(struct snd_pcm_substream *substream)
 {
 	pr_warn("StartAudioCaptureHardware\n");
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-	if((GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == false))
-	{
-		Afe_Set_Reg(AUDIO_TOP_CON1, 0x4,  0x4);  // I2S1/I2S2 SOFT_Reset Hi
-		Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 5)|(0x1 << 6),	(0x1 << 5)|(0x1 << 6)); // Sets to 1 to gated I2S1/2 engine clock
-		ConfigAdcI2S(substream);
-		SetI2SAdcIn(mAudioDigitalI2S);
-		{
-			// I2S1 out Setting
-			uint32 u32AudioI2S = 0, MclkDiv1 = 0, MclkDiv2 = 0;
-
-			u32AudioI2S = SampleRateTransform(substream->runtime->rate) << 8;
-			u32AudioI2S |= Soc_Aud_I2S_FORMAT_I2S << 3; // us3 I2s format
-			u32AudioI2S |= Soc_Aud_I2S_WLEN_WLEN_32BITS << 1; //32bit  
-			u32AudioI2S |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode
-
-			Afe_Set_Reg(AFE_I2S_CON1, u32AudioI2S, 0xFFFFFFFE);
-
-			MclkDiv1 = SetCLkMclk(Soc_Aud_I2S1, substream->runtime->rate); //select I2S
-			SetCLkBclk(MclkDiv1,  substream->runtime->rate, substream->runtime->channels, Soc_Aud_I2S_WLEN_WLEN_32BITS);  
-
-			MclkDiv2 = SetCLkMclk(Soc_Aud_I2S2, substream->runtime->rate); //select I2S
-			SetCLkBclk(MclkDiv2,  substream->runtime->rate, 2, Soc_Aud_I2S_WLEN_WLEN_32BITS);
-		}
-   
-		Afe_Set_Reg(AUDIO_TOP_CON1, (0x0 << 5)|(0x0 << 6),	(0x1 << 5)|(0x1 << 6));
-		udelay(200); 
-		Afe_Set_Reg(AUDIO_TOP_CON1, 0x0,  0x4);  // // I2S1/I2S2 SOFT_Reset Lo
-
-		SetI2SAdcEnable(true);
-		SetI2SDacEnable(true);
-	}
-	
-	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
-#else
-    ConfigAdcI2S(substream);
-    SetI2SAdcIn(mAudioDigitalI2S);
-#endif
+	ConfigAdcI2S(substream);
+	SetI2SAdcIn(mAudioDigitalI2S);
 
 	SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_VUL, AFE_WLEN_16_BIT);
 	SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_VUL, AFE_WLEN_16_BIT);
 	SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT, Soc_Aud_InterConnectionOutput_O09);
 	SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT, Soc_Aud_InterConnectionOutput_O10);
 
+	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC) == false) {
+		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, true);
+		SetI2SAdcEnable(true);
+	} else {
+		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, true);
+	}
 
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I03, Soc_Aud_InterConnectionOutput_O09);
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I04, Soc_Aud_InterConnectionOutput_O10);
@@ -204,10 +161,9 @@ static void StartAudioCaptureHardware(struct snd_pcm_substream *substream)
 	}
 
 	/* here to set interrupt */
-	irq_add_user(substream,
-		     Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
-		     substream->runtime->rate,
-		     substream->runtime->period_size);
+	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->period_size);
+	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->rate);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, true);
 
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_VUL, substream->runtime->rate);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_VUL, true);

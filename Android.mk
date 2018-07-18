@@ -166,8 +166,9 @@ check-kernel-config:
 ifneq ($(filter check-mtk-config check-kernel-dotconfig,$(MAKECMDGOALS)),)
 .PHONY: $(TARGET_KERNEL_CONFIG)
 endif
-check-kernel-dotconfig: $(TARGET_KERNEL_CONFIG)
-	python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(TARGET_KERNEL_CONFIG) -p $(MTK_PROJECT_NAME)
+
+#check-kernel-dotconfig: $(TARGET_KERNEL_CONFIG)
+#	python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(TARGET_KERNEL_CONFIG) -p $(MTK_PROJECT_NAME)
 
 
 endif#TARGET_NO_KERNEL

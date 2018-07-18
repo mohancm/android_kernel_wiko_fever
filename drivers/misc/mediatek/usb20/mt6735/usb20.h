@@ -92,6 +92,11 @@ extern void fan5405_set_opa_mode(unsigned int val);
 extern void fan5405_set_otg_pl(unsigned int val);
 extern void fan5405_set_otg_en(unsigned int val);
 extern unsigned int fan5405_reg_config_interface(unsigned char RegNum, unsigned char val);
+#elif defined(CONFIG_MTK_BQ24157_SUPPORT)
+extern void bq24157_set_opa_mode(kal_uint32 val);
+extern void bq24157_set_otg_en(kal_uint32 val);
+extern void bq24157_set_otg_pl(kal_uint32 val);
+extern unsigned int bq24157_reg_config_interface(unsigned char RegNum, unsigned char val);
 #elif defined(CONFIG_MTK_BQ24261_SUPPORT)
 extern void bq24261_set_en_boost(unsigned int val);
 #elif defined(CONFIG_MTK_BQ24296_SUPPORT)

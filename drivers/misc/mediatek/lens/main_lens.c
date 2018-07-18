@@ -53,6 +53,7 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 #define LOG_INF(format, args...)
 #endif
 
+static unsigned long g_s_u4LastPos = 0; // Jiangde++
 
 static stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	#ifdef CONFIG_MTK_LENS_BU6424AF_SUPPORT
@@ -70,16 +71,6 @@ static stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	#ifdef CONFIG_MTK_LENS_DW9718AF_SUPPORT
 	{1, AFDRV_DW9718AF, DW9718AF_SetI2Cclient, DW9718AF_Ioctl, DW9718AF_Release},
 	#endif
-	
-/*lenovo.sw start wuyt3 add for K5 camera*/
-	#ifdef CONFIG_MTK_LENS_DW9761SUNNYAF_SUPPORT
-	{1, AFDRV_DW9761SUNNYAF, DW9761SUNNYAF_SetI2Cclient, DW9761SUNNYAF_Ioctl, DW9761SUNNYAF_Release},
-	#endif
-	#ifdef CONFIG_MTK_LENS_DW9761OFILMAF_SUPPORT
-	{1, AFDRV_DW9761OFILMAF, DW9761OFILMAF_SetI2Cclient,  DW9761OFILMAF_Ioctl,  DW9761OFILMAF_Release},
-	#endif
-/*lenovo.sw end wuyt3 add for K5 camera*/
-	
 	#ifdef CONFIG_MTK_LENS_LC898122AF_SUPPORT
 	{1, AFDRV_LC898122AF, LC898122AF_SetI2Cclient, LC898122AF_Ioctl, LC898122AF_Release},
 	#endif
@@ -95,6 +86,22 @@ static stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	#ifdef CONFIG_MTK_LENS_AD5820AF_SUPPORT
 	{1, AFDRV_AD5820AF, AD5820AF_SetI2Cclient, AD5820AF_Ioctl, AD5820AF_Release},
 	#endif
+
+	#ifdef CONFIG_MTK_LENS_OV13850AF_SUPPORT
+	{1, AFDRV_OV13850AF, OV13850AF_SetI2Cclient, OV13850AF_Ioctl, OV13850AF_Release},
+	#endif
+	#ifdef CONFIG_MTK_LENS_HI842AF_SUPPORT
+	{1, AFDRV_HI842AF, HI842AF_SetI2Cclient, HI842AF_Ioctl, HI842AF_Release},
+	#endif
+	#ifdef CONFIG_MTK_LENS_IMX258AF_SUPPORT
+	{1, AFDRV_IMX258AF, IMX258AF_SetI2Cclient, IMX258AF_Ioctl, IMX258AF_Release},
+	#endif
+	#ifdef CONFIG_MTK_LENS_IMX258SUNNYAF_SUPPORT
+	{1, AFDRV_IMX258SUNNYAF, IMX258SUNNYAF_SetI2Cclient, IMX258SUNNYAF_Ioctl, IMX258SUNNYAF_Release},
+	#endif
+	#ifdef CONFIG_MTK_LENS_S5K4H8AF_SUPPORT
+	{1, AFDRV_S5K4H8AF, S5K4H8AF_SetI2Cclient, S5K4H8AF_Ioctl, S5K4H8AF_Release},
+	#endif    
 };
 
 static stAF_DrvList *g_pstAF_CurDrv;
@@ -129,6 +136,12 @@ static long AF_SetMotorName(__user stAF_MotorName * pstMotorName)
 			g_pstAF_CurDrv = &g_stAF_DrvList[i];
 			g_pstAF_CurDrv->pAF_SetI2Cclient(g_pstAF_I2Cclient, &g_AF_SpinLock, &g_s4AF_Opened);
 			i4RetValue = 1;
+
+			int i4Ret = g_pstAF_CurDrv->pAF_Ioctl(NULL, AFIOC_T_MOVETO, g_s_u4LastPos); // Jiangde++
+#ifdef CONFIG_MTK_LENS_AF_DEBUG           
+			printk("HJDDbgAF, AF_SetMotorName, Fisrt move to g_s_u4LastPos=%d(i4Ret=%d) \n", g_s_u4LastPos, i4Ret);
+#endif
+            
 			break;
 		}
 	}
@@ -147,7 +160,19 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned 
 
 	default:
 		if (g_pstAF_CurDrv)
+		{
 			i4RetValue = g_pstAF_CurDrv->pAF_Ioctl(a_pstFile, a_u4Command, a_u4Param);
+			if (AFIOC_T_MOVETO == a_u4Command && 0 == i4RetValue) // Jiangde++
+			{
+				spin_lock(&g_AF_SpinLock);
+				g_s_u4LastPos = a_u4Param;
+				spin_unlock(&g_AF_SpinLock);
+
+#ifdef CONFIG_MTK_LENS_AF_DEBUG           
+				printk("HJDDbgAF, AF_Ioctl, now moved to g_s_u4LastPos=%d \n", g_s_u4LastPos);
+#endif
+			}
+		}
 		break;
 	}
 

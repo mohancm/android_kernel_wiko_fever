@@ -1519,6 +1519,8 @@ static inline int adopt_CAMERA_HW_CheckIsAlive(void)
 static inline int adopt_CAMERA_HW_GetResolution(void *pBuf)
 {
 	/* ToDo: remove print */
+// baseline V2.39.1
+#if 0
     ACDK_SENSOR_PRESOLUTION_STRUCT *pBufResolution =  (ACDK_SENSOR_PRESOLUTION_STRUCT *)pBuf;
 	ACDK_SENSOR_RESOLUTION_INFO_STRUCT* pRes[2] = { NULL, NULL };
     PK_XLOG_INFO("[CAMERA_HW] adopt_CAMERA_HW_GetResolution, pBuf: %p\n", pBuf);
@@ -1555,7 +1557,71 @@ static inline int adopt_CAMERA_HW_GetResolution(void *pBuf)
 	}
 
     return 0;
-}   /* adopt_CAMERA_HW_GetResolution() */
+#endif
+
+    //@xuchunsheng added start for displaying camera picture size in 09/10/2015
+    int i = 0;
+    int err = 0;
+    PK_DBG("[xucs] Enter in adopt_CAMERA_HW_GetResolution\n");
+	PK_XLOG_INFO("[CAMERA_HW] adopt_CAMERA_HW_GetResolution, pBuf: %p\n", pBuf);
+    ACDK_SENSOR_PRESOLUTION_STRUCT *pBufResolution =  (ACDK_SENSOR_PRESOLUTION_STRUCT *)pBuf;
+    MSDK_SENSOR_RESOLUTION_INFO_STRUCT SensorResolution[2] = {0,0};
+    static int mainSize = 0, subSize = 0, realSize = 0;
+    static BOOL readSizeFinish = FALSE;
+    for(i = 0; i < 2; i++){
+    pBufResolution->pResolution[i] = &SensorResolution[i];
+    }
+	if (g_pSensorFunc) {
+		g_pSensorFunc->SensorGetResolution(pBufResolution->pResolution);
+        PK_DBG("[xucs] The value of realSize is %d\n",realSize);
+        PK_DBG("[xucs] The value of mainSize is %d\n",mainSize);
+        PK_DBG("[xucs] The value of subSize is %d\n",subSize);
+        PK_DBG("[xucs]SensorResolution[0].SensorFullHeight is %d\n",SensorResolution[0].SensorFullHeight);
+        PK_DBG("[xucs]SensorResolution[0].SensorFullWidth is %d\n",SensorResolution[0].SensorFullWidth);
+        PK_DBG("[xucs]SensorResolution[1].SensorFullHeight is %d\n",SensorResolution[1].SensorFullHeight);
+        PK_DBG("[xucs]SensorResolution[1].SensorFullWidth is %d\n",SensorResolution[1].SensorFullWidth); 
+        if(!mainSize && SensorResolution[0].SensorFullHeight && SensorResolution[0].SensorFullWidth)
+        {
+            realSize = SensorResolution[0].SensorFullHeight * SensorResolution[0].SensorFullWidth;
+            PK_DBG("[xucs] main The value of realSize is %d\n",realSize);
+            mainSize = realSize / 1000000;
+            PK_DBG("[xucs] main The value of mainSize is %d\n",mainSize);
+            if((realSize % 1000000) > 500000)
+            {
+                mainSize += 1;
+            }
+            PK_DBG("[xucs] main The value of mainSize is %d\n", mainSize);
+        }
+
+        if(!subSize && SensorResolution[1].SensorFullHeight && SensorResolution[1].SensorFullWidth)
+        {
+
+            realSize = SensorResolution[1].SensorFullHeight * SensorResolution[1].SensorFullWidth;
+            PK_DBG("[xucs] sub The value of realSize is %d\n",realSize);
+            subSize = realSize / 1000000;
+            PK_DBG("[xucs] sub The value of subSize is %d\n",subSize);
+            if((realSize % 1000000) > 500000)
+            {
+                subSize += 1;
+            }
+            PK_DBG("[xucs] sub The value of subSize is %d\n", subSize);
+
+
+        }
+        //@xuchunsheng added end
+	} else {
+		PK_DBG("[CAMERA_HW]ERROR:NULL g_pSensorFunc\n");
+	}
+    if(!readSizeFinish && mainSize && subSize)
+    {
+         snprintf(mtk_ccm_name,sizeof(mtk_ccm_name),"%sMainMaxPictureSize:%dM;SubMaxPictureSize:%dM;",mtk_ccm_name,mainSize,subSize);
+         PK_DBG("[xucs] The value of mtk_ccm_name is %s\n",mtk_ccm_name); 
+         readSizeFinish = TRUE;
+    }
+    PK_DBG("[xucs] Exit out adopt_CAMERA_HW_GetResolution\n");
+    //@xuchunsheng added end
+	return 0;
+}				/* adopt_CAMERA_HW_GetResolution() */
 
 
 /*******************************************************************************

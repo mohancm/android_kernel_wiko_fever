@@ -946,18 +946,106 @@ static struct platform_driver dispsys_of_driver = {
 	.suspend = disp_suspend,
 	.resume = disp_resume,
 };
+#ifdef CONFIG_MTK_DISPTE_GPIO
+static const struct of_device_id DispTE_use_gpio_of_match[] = {
+	{.compatible = "mediatek,DispTE_gpio"},
+	{},
+};
+
+struct pinctrl *disptepinctrl = NULL;
+struct pinctrl_state *dispte_en_h = NULL;
+struct pinctrl_state *dispte_en_l = NULL;
+
+int DispTEpin_Enable(void)
+{
+        if(disptepinctrl != NULL){
+        pinctrl_select_state(disptepinctrl, dispte_en_h);
+        //printk("%s,line = %d\n", __func__,__LINE__);
+        }else{
+        //printk("%s,line = %d, error\n", __func__,__LINE__);
+        }
+        return 0;
+}
+
+int DispTEpin_Disable(void)
+{
+        if(disptepinctrl != NULL){
+        pinctrl_select_state(disptepinctrl, dispte_en_l);
+        //printk("%s,line = %d\n", __func__,__LINE__);
+        }else{
+        //printk("%s,line = %d, error\n", __func__,__LINE__);
+        }
+        return 0;
+}
+
+
+static int DispTE_use_gpio_probe(struct platform_device *pdev)
+{
+    //int ret = 0;
+    //struct task_struct *keyEvent_thread = NULL;
+	//printk("dispte_use_gpio_probe\n");
+
+	disptepinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(disptepinctrl)) {
+	        //printk("IS_ERR(disptepinctrl) \n");
+	        return -1;	
+	}
+	dispte_en_l= pinctrl_lookup_state(disptepinctrl, "disptepin_cfg0");
+	if (IS_ERR(dispte_en_l)) {
+	        //printk("IS_ERR(dispte_en_l) \n");
+	        return -1;	 
+	}
+           dispte_en_h = pinctrl_lookup_state(disptepinctrl, "disptepin_cfg1");
+           if (IS_ERR(dispte_en_h)) {
+          	//printk("IS_ERR(dispte_en_h) \n");
+           return -1;	
+           }
+	   
+
+    return 0;
+}
+
+static int DispTE_use_gpio_remove(struct platform_device *dev)	
+{
+	return 0;
+}
+
+static struct platform_driver DispTE_use_gpio_driver = {
+	.probe	= DispTE_use_gpio_probe,
+	.remove  = DispTE_use_gpio_remove,
+	.driver    = {
+	.name       = "disp_gpio",
+	.of_match_table = DispTE_use_gpio_of_match,	
+	},
+};
+
+#endif
 
 static int __init disp_init(void)
 {
 	int ret = 0;
 
 	DDPPRINT("Register the disp driver\n");
+	//printk("%s,line = %d\n", __func__,__LINE__);
 	if (platform_driver_register(&dispsys_of_driver)) {
 		DDPERR("failed to register disp driver\n");
 		/* platform_device_unregister(&disp_device); */
 		ret = -ENODEV;
 		return ret;
 	}
+        #ifdef CONFIG_MTK_DISPTE_GPIO
+		//printk("%s,line = %d\n", __func__,__LINE__);
+             if (platform_driver_register(&DispTE_use_gpio_driver)) {
+			 	//printk("%s,line = %d\n", __func__,__LINE__);
+				//printk("%s,line = %d\n", __func__,__LINE__);
+		DDPERR("failed to register dispte driver\n");
+		/* platform_device_unregister(&disp_device); */
+		//ret = -ENODEV;
+		//return ret;
+	}
+        #endif
+             //platform_driver_register(&DispTE_use_gpio_driver);
+             //printk("%s,line = %d\n", __func__,__LINE__);
 
 	return 0;
 }
@@ -972,6 +1060,10 @@ static void __exit disp_exit(void)
 #endif
 
 	platform_driver_unregister(&dispsys_of_driver);
+	
+	#ifdef CONFIG_MTK_DISPTE_GPIO
+             platform_driver_unregister(&DispTE_use_gpio_driver);
+        #endif
 }
 arch_initcall(disp_init);
 module_init(disp_probe_1);

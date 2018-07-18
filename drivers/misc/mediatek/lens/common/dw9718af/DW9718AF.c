@@ -77,6 +77,10 @@ static int s4AF_WriteReg(u16 a_u2Data)
 
 	g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
 
+#ifdef CONFIG_MTK_LENS_AF_DEBUG
+    printk("HJDDbgAF, %s, write addr=0x%x, data=%d \n", __FILE__, AF_I2C_SLAVE_ADDR, a_u2Data);
+#endif
+
 	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 3);
 
 	if (i4RetValue < 0) {

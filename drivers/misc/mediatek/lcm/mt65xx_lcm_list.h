@@ -6,9 +6,6 @@
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 extern LCM_DRIVER lcm_common_drv;
 #else
-//lenovo_sw wuwl10 20150727 add for lcm
-extern LCM_DRIVER nt35596_fhd_dsi_vdo_tm_lcm_drv;
-extern LCM_DRIVER otm1901_fhd_dsi_vdo_boe_lcm_drv;
 extern LCM_DRIVER otm1282a_hd720_dsi_vdo_60hz_lcm_drv;
 extern LCM_DRIVER otm1282a_hd720_dsi_vdo_lcm_drv;
 extern LCM_DRIVER vvx10f008b00_wuxga_dsi_vdo_lcm_drv;
@@ -239,6 +236,12 @@ extern LCM_DRIVER r69429_wqxga_dsi_vdo_lcm_drv;
 extern LCM_DRIVER hx8394c_wxga_dsi_vdo_lcm_drv;
 extern LCM_DRIVER nt35595_truly_fhd_dsi_vdo_lcm_drv;
 extern LCM_DRIVER b080uan01_2_wuxga_dsi_vdo_lcm_drv;
+extern LCM_DRIVER ili9881c_hd720_dsi_vdo_djn_lcm_drv;
+extern LCM_DRIVER ili9881c_hd720_dsi_vdo_boe_lcm_drv;
+extern LCM_DRIVER ili9881c_hd720_dsi_vdo_tcl_lcm_drv;
+extern LCM_DRIVER ea8061v_dsi_vdo_lcm_drv_amoled;
+extern LCM_DRIVER otm1901a_fhd_dsi_vdo_djn_tps65132_lcm_drv;
+extern LCM_DRIVER otm1901a_fhd_dsi_vdo_boe_tps65132_lcm_drv;
 #endif
 
 #ifdef BUILD_LK

@@ -73,6 +73,9 @@
 #define MTP_RESPONSE_DEVICE_CANCEL  0x201F
 
 static const char mtp_shortname[] = "mtp_usb";
+#ifdef CONFIG_WIKO_UNIFY
+extern char* Market_Area;
+#endif
 
 /*#ifdef DBG
 #undef DBG
@@ -318,11 +321,55 @@ static struct usb_descriptor_header *ss_ptp_descs[] = {
 	NULL,
 };
 
+#if defined(CONFIG_PROJECT_P4605_MMX_IN)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "Micromax Q427",
+	{  },	/* end of list */
+};
+#elif defined(CONFIG_PROJECT_P4601_CLF_PH)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "Thrill Access",
+	{  },	/* end of list */
+};
+#elif defined(CONFIG_PROJECT_L5460_WIK_FR)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "FEVER",
+	{  },	/* end of list */
+};
+#elif defined(CONFIG_PROJECT_P4601_WIK_FR)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "U FEEL LITE",
+	{  },	/* end of list */
+};
+#elif defined(CONFIG_PROJECT_P6601_WIK_FR)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "U FEEL",
+	{  },	/* end of list */
+};
+#elif defined(CONFIG_PROJECT_P4605_BLU_US)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "Studio Touch",
+	{  },	/* end of list */
+};
+#elif defined(CONFIG_PROJECT_P6601_BLU_US)
+static struct usb_string mtp_string_defs[] = {
+	/* Naming interface "MTP" so libmtp will recognize us */
+	[INTERFACE_STRING_INDEX].s	= "R1 HD",
+	{  },	/* end of list */
+};
+#else
 static struct usb_string mtp_string_defs[] = {
 	/* Naming interface "MTP" so libmtp will recognize us */
 	[INTERFACE_STRING_INDEX].s	= "MTP",
 	{  },	/* end of list */
 };
+#endif
 
 static struct usb_gadget_strings mtp_string_table = {
 	.language		= 0x0409,	/* en-US */
@@ -392,18 +439,16 @@ struct {
 #define USB_MTP_FUNCTIONS		6
 #endif
 
-//lenovo-sw yexh1 2014_12_17, the name of adb change to ffs in android L 
 #define USB_MTP			"mtp\n"
 #define USB_MTP_ACM		"mtp,acm\n"
-#define USB_MTP_ADB		"mtp,ffs\n"
-#define USB_MTP_ADB_ACM	        "mtp,ffs,acm\n"
+#define USB_MTP_ADB		"mtp,adb\n"
+#define USB_MTP_ADB_ACM	        "mtp,adb,acm\n"
 #define USB_MTP_UMS		"mtp,mass_storage\n"
-#define USB_MTP_UMS_ADB	        "mtp,mass_storage,ffs\n"
+#define USB_MTP_UMS_ADB	        "mtp,mass_storage,adb\n"
 #ifdef CONFIG_MTK_TC1_FEATURE
-#define USB_TC1_MTP_ADB	        "acm,gser,mtp,ffs\n"
+#define USB_TC1_MTP_ADB	        "acm,gser,mtp,adb\n"
 #define USB_TC1_MTP		"acm,gser,mtp\n"
 #endif
-//lenovo-sw yexh1 END
 
 static char * USB_MTP_FUNC[USB_MTP_FUNCTIONS] =
 {
@@ -2195,6 +2240,18 @@ static void mtp_function_disable(struct usb_function *f)
 	VDBG(cdev, "%s disabled\n", dev->function.name);
 }
 
+#ifdef CONFIG_WIKO_UNIFY
+static void reset_mtp_string_wiko(void){
+#if defined(CONFIG_PROJECT_L5460_WIK_FR)
+    if(!strncmp(Market_Area, "SE", strlen("SE")))
+    {
+        mtp_string_defs[INTERFACE_STRING_INDEX].s = "FEVER Special Edition";
+    }
+#endif
+    return;
+}
+#endif
+
 static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 {
 	struct mtp_dev *dev = _mtp_dev;
@@ -2211,6 +2268,9 @@ static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 		mtp_interface_desc.iInterface = ret;
 	}
 
+#ifdef CONFIG_WIKO_UNIFY
+    reset_mtp_string_wiko();
+#endif
 	dev->cdev = c->cdev;
 	dev->function.name = "mtp";
 	dev->function.strings = mtp_strings;

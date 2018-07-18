@@ -13,11 +13,11 @@
 #endif
 /* #include <mach/mt_irq.h> */
 /*#include <board-custom.h>*/
-#include "../disp_assert_layer.h"
+#include "disp_assert_layer.h"
 #include <mt-plat/sync_write.h>
-#include "../ddp_hal.h"
+#include "ddp_hal.h"
 /* #include "ddp_drv.h" */
-#include "../ddp_path.h"
+#include "ddp_path.h"
 #include "ddp_ovl.h"
 
 

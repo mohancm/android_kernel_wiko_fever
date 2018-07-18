@@ -420,17 +420,6 @@ typedef struct {
 
 
 /* --------------------------------------------------------------------------- */
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-typedef struct
-{
-    /* common parameters */
-    unsigned char cmd;
-    unsigned char data;
-
-}lcm_reg;
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATUREend
 typedef struct {
 	unsigned char cmd;
 	unsigned char count;
@@ -798,9 +787,6 @@ typedef struct {
 	/* ///////////ESD_RECOVERY////////////////////// */
 	unsigned int (*esd_check)(void);
 	unsigned int (*esd_recover)(void);
-//lenovo-sw wuwl10 add 20150515 for esd recover panel backlight begin
-    void (*esd_recover_backlight)(void);
-//lenovo-sw wuwl10 add 20150515 for esd recover panel backlight end
 	unsigned int (*check_status)(void);
 	unsigned int (*ata_check)(unsigned char *buffer);
 	void (*read_fb)(unsigned char *buffer);
@@ -818,19 +804,6 @@ typedef struct {
 			     unsigned int *lcm_value);
 	/* /////////////PWM///////////////////////////// */
 	void (*set_pwm_for_mix)(int enable);
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-    void (*set_cabcmode)(unsigned int mode);
-    void (*get_cabcmode)(unsigned int * mode);
-    void (*set_inversemode)(unsigned int mode);
-    void (*get_inversemode)(unsigned int * mode);
-
-    void (*set_lcm_reg)(lcm_reg *regs);
-    void (*get_lcm_reg)(lcm_reg *regs);
-    const char* version;
-    unsigned int  (*get_lcm_version)(void);
-    unsigned int (*detect_backlight)(void);
-#endif	
 } LCM_DRIVER;
 
 #if	defined(CONFIG_ARCH_MT6735) ||\

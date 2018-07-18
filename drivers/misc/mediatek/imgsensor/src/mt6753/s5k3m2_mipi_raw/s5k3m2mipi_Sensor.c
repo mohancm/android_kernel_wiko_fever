@@ -6,7 +6,7 @@
  *
  * Project:
  * --------
- *	 ALPS 
+ *	 ALPS
  *
  * Description: 
  * ------------
@@ -17,7 +17,7 @@
  * Upper this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
  *============================================================================
  ****************************************************************************/
- 
+
 #include <linux/videodev2.h>
 #include <linux/i2c.h>
 #include <linux/platform_device.h>
@@ -28,33 +28,30 @@
 #include <asm/atomic.h>
 //#include <asm/system.h>
 //#include <linux/xlog.h>
-#include <linux/types.h>
 
-#include "kd_camera_hw.h"
+#include "kd_camera_typedef.h"
+
 #include "kd_imgsensor.h"
 #include "kd_imgsensor_define.h"
 #include "kd_imgsensor_errcode.h"
 
 #include "s5k3m2mipi_Sensor.h"
 
-#define TRY_NUM 20
 #define PFX "S5K3M2_camera_sensor"
 #define LOG_1 LOG_INF("S5K3M2,MIPI 4LANE\n")
 #define LOG_2 LOG_INF("preview 2096*1552@30fps,1260Mbps/lane; video 4192*3104@30fps,1260Mbps/lane; capture 13M@30fps,1260Mbps/lane\n")
 //#define LOG_DBG(format, args...) xlog_printk(ANDROID_LOG_DEBUG ,PFX, "[%S] " format, __FUNCTION__, ##args)
-#define CAM_CALINF(fmt, arg...)    pr_debug(PFX "[%s] " fmt, __FUNCTION__, ##arg)
-#define CAM_CALDB(fmt, arg...)    pr_debug(PFX "[%s] " fmt, __FUNCTION__, ##arg)
-#define CAM_CALERR(fmt, arg...)    pr_debug(PFX "[%s] " fmt, __FUNCTION__, ##arg)
-#define LOG_INF(format, args...)    pr_debug(PFX "[%s] " format, __FUNCTION__, ##args)
+#define LOG_INF(format, args...)	pr_debug("s5k3m2"   , PFX, "[%s] " format, __FUNCTION__, ##args)
+#define LOGE(format, args...)   pr_debug("s5k3m2", PFX, "[%s] " format, __FUNCTION__, ##args)
 
-extern bool read_3m2_eeprom( kal_uint16 addr, BYTE* data, kal_uint32 size);
-
-extern char Read_MID_form_eeprom(void);
-
+#define S5K3M_USE_WB_OTP
+#ifdef S5K3M_USE_WB_OTP
+extern int s5k3m_update_otp_wb(void);
+#endif
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
 static imgsensor_info_struct imgsensor_info = { 
 	.sensor_id = S5K3M2_SENSOR_ID,
-	.checksum_value = 0xc3dd012b,
+	.checksum_value = 0x752cfcc1,
 	.pre = {
 		.pclk = 440000000,				//record different mode's pclk
 		.linelength = 4592,				//record different mode's linelength
@@ -222,8 +219,8 @@ static imgsensor_info_struct imgsensor_info = {
 	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_Gb,
 	.mclk = 24,
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
-	.i2c_addr_table = {0x5A,0xff},//lenovo.sw wangsx3
-    .i2c_speed = 400, // i2c read/write speed
+	.i2c_addr_table = {0x20,0x5A, 0xff},
+    .i2c_speed = 300, // i2c read/write speed
 };
 
 
@@ -244,7 +241,7 @@ static imgsensor_struct imgsensor = {
 
 
 /* Sensor output window information */
-static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[] =	 
+static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] =	 
 {
  { 4192, 3104,	  0,  0, 4192, 3104, 2096,  1552, 0000, 0000, 2096, 1552, 0,	0, 2096,  1552}, // Preview 
  { 4192, 3104,	  0,  0, 4192, 3104, 4192,  3104, 0000, 0000, 4192, 3104, 0,	0, 4192,  3104}, // capture 
@@ -257,7 +254,21 @@ static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[] =
  { 4192, 3104,	  0,  0, 4192, 3104, 2096,  1552, 0000, 0000, 2096, 1552, 0,	0, 2096,  1552}, // Custom4 
  { 4192, 3104,	  0,  0, 4192, 3104, 2096,  1552, 0000, 0000, 2096, 1552, 0,	0, 2096,  1552}, // Custom5 
  };// slim video  
+////no mirror flip
+//static SET_PD_BLOCK_INFO_T imgsensor_pd_info =
+//{
+//    .i4OffsetX = 20,
+//    .i4OffsetY = 23,
+//    .i4PitchX  = 64,
+//    .i4PitchY  = 64,
+//    .i4PairNum  =16,
+//    .i4SubBlkW  =16,
+//    .i4SubBlkH  =16,
+//	.i4PosL = {{20,23},{72,23},{36,27},{56,27},{24,43},{68,43},{40,47},{52,47},{40,55},{52,55},{24,59},{68,59},{36,75},{56,75},{20,79},{72,79}},    
+//    .i4PosR = {{20,27},{72,27},{36,31},{56,31},{24,39},{68,39},{40,43},{52,43},{40,59},{52,59},{24,63},{68,63},{36,71},{56,71},{20,75},{72,75}},
+//};
 
+//mirror flip
 static SET_PD_BLOCK_INFO_T imgsensor_pd_info =
 {
     .i4OffsetX = 23,
@@ -267,48 +278,39 @@ static SET_PD_BLOCK_INFO_T imgsensor_pd_info =
     .i4PairNum  =16,
     .i4SubBlkW  =16,
     .i4SubBlkH  =16,
-	.i4PosL = {{23,20},{75,20},{39,24},{59,24},{27,32},{71,32},{43,36},{55,36},{43,52},{55,52},{27,56},{71,56},{39,64},{59,64},{23,68},{75,68}},    
-    .i4PosR = {{23,16},{75,16},{39,20},{59,20},{27,36},{71,36},{43,40},{55,40},{43,48},{55,48},{27,52},{71,52},{39,68},{59,68},{23,72},{75,72}},
+    .i4PosL = {{23, 20},{75, 20},{39 ,24},{59, 24},{27 ,32},{71 ,32},{43, 36},{55 ,36},{43, 52},{55, 52},{27 ,56},{71 ,56},{39 ,64},{59, 64},{23 ,68},{75, 68}},    
+    .i4PosR = {{23, 16},{75, 16},{39 ,20},{59 ,20},{27 ,36},{71, 36},{43, 40},{55, 40},{43, 48},{55 ,48},{27, 52},{71, 52},{39, 68},{59, 68},{23 ,72},{75 ,72}},
 };
-
-//#define LONG_SHUTTER_FEATURE
-#ifdef LONG_SHUTTER_FEATURE
-/*lenovo-sw sunliang modify for long_shutter 2015_4_25 begin*/
-static kal_uint16	preview_gain=0;
-static kal_uint16 	preview_shutter=0;
-static kal_bool	lock_flag=KAL_FALSE;
-/*lenovo-sw sunliang modify for long_shutter 2015_4_25 end*/
-#endif
 static kal_uint16 read_cmos_sensor(kal_uint32 addr)
 {
-	kal_uint16 get_byte=0;
-    char pusendcmd[2] = {(char)(addr >> 8) , (char)(addr & 0xFF) };
     kdSetI2CSpeed(imgsensor_info.i2c_speed); // Add this func to set i2c speed by each sensor
+    kal_uint16 get_byte=0;
+    char pusendcmd[2] = {(char)(addr >> 8) , (char)(addr & 0xFF) };
     iReadRegI2C(pusendcmd , 2, (u8*)&get_byte, 2, imgsensor.i2c_write_id);
     return ((get_byte<<8)&0xff00)|((get_byte>>8)&0x00ff);
 }
 
 
-static void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
+void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
 {
-	char pusendcmd[4] = {(char)(addr >> 8) , (char)(addr & 0xFF) ,(char)(para >> 8),(char)(para & 0xFF)};
     kdSetI2CSpeed(imgsensor_info.i2c_speed); // Add this func to set i2c speed by each sensor
+    char pusendcmd[4] = {(char)(addr >> 8) , (char)(addr & 0xFF) ,(char)(para >> 8),(char)(para & 0xFF)};
     iWriteRegI2C(pusendcmd , 4, imgsensor.i2c_write_id);
 }
-/*
+
 static kal_uint16 read_cmos_sensor_8(kal_uint16 addr)
 {
-	 kal_uint16 get_byte=0;
-    char pusendcmd[2] = {(char)(addr >> 8) , (char)(addr & 0xFF) };
     kdSetI2CSpeed(imgsensor_info.i2c_speed); // Add this func to set i2c speed by each sensor
+    kal_uint16 get_byte=0;
+    char pusendcmd[2] = {(char)(addr >> 8) , (char)(addr & 0xFF) };
     iReadRegI2C(pusendcmd , 2, (u8*)&get_byte,1,imgsensor.i2c_write_id);
     return get_byte;
 }
-*/
-static void write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
+
+void write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
 {
-	char pusendcmd[4] = {(char)(addr >> 8) , (char)(addr & 0xFF) ,(char)(para & 0xFF)};
     kdSetI2CSpeed(imgsensor_info.i2c_speed); // Add this func to set i2c speed by each sensor
+    char pusendcmd[4] = {(char)(addr >> 8) , (char)(addr & 0xFF) ,(char)(para & 0xFF)};
     iWriteRegI2C(pusendcmd , 3, imgsensor.i2c_write_id);
 }
 
@@ -324,11 +326,11 @@ static void set_dummy(void)
 }	/*	set_dummy  */
 static void set_max_framerate(UINT16 framerate,kal_bool min_framelength_en)
 {
-	//kal_int16 dummy_line;
+	kal_int16 dummy_line;
 	kal_uint32 frame_length = imgsensor.frame_length;
 	//unsigned long flags;
 
-	LOG_INF("framerate = %d, min framelength should enable?=%d\n", framerate,min_framelength_en);
+	LOG_INF("framerate = %d, min framelength should enable? \n", framerate,min_framelength_en);
    
 	frame_length = imgsensor.pclk / framerate * 10 / imgsensor.line_length;
 	spin_lock(&imgsensor_drv_lock);
@@ -355,7 +357,7 @@ static void set_max_framerate(UINT16 framerate,kal_bool min_framelength_en)
 static void write_shutter(kal_uint16 shutter)
 {
 	kal_uint16 realtime_fps = 0;
-    //kal_uint32 frame_length = 0;
+    kal_uint32 frame_length = 0;
 	unsigned long flags;
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
 	imgsensor.shutter = shutter;
@@ -411,8 +413,7 @@ static void write_shutter(kal_uint16 shutter)
 * GLOBALS AFFECTED
 *
 *************************************************************************/
-/*
- * static void set_shutter(kal_uint16 shutter)
+static void set_shutter(kal_uint16 shutter)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
@@ -420,9 +421,7 @@ static void write_shutter(kal_uint16 shutter)
 	spin_unlock_irqrestore(&imgsensor_drv_lock, flags);
 	
 	write_shutter(shutter);
-	
-}
-* */
+}	/*	set_shutter */
 
 
 
@@ -500,7 +499,6 @@ static void set_mirror_flip(kal_uint8 image_mirror)
 	spin_lock(&imgsensor_drv_lock);
     imgsensor.mirror= image_mirror; 
     spin_unlock(&imgsensor_drv_lock);
-    image_mirror = IMAGE_HV_MIRROR -image_mirror;
     switch (image_mirror) {
 
         case IMAGE_NORMAL:
@@ -542,7 +540,7 @@ static void sensor_init(void)
   //s 2014/12/01, bruce
   kal_uint16 chip_id = 0;
   chip_id = read_cmos_sensor(0x0002);
-  
+ printk("YC sensor_init 1 ######################################## \n"); 
   if (chip_id == 0xC001) {
   LOG_INF("-- sensor_init, chip id = 0xC001\n");
   //e 2014/12/01, bruce
@@ -1374,8 +1372,8 @@ static void sensor_init(void)
   write_cmos_sensor(0x602A, 0x192D);
   write_cmos_sensor_8(0x6F12, 0x00);
   write_cmos_sensor(0x602A, 0x14F0);
-  write_cmos_sensor(0x6F12, 0x0040);
-  write_cmos_sensor(0x6F12, 0x0040);
+  write_cmos_sensor(0x6F12, 0x0040);  //ob for full size
+  write_cmos_sensor(0x6F12, 0x0040);  //ob for bining
   write_cmos_sensor(0x602A, 0x195E);
   write_cmos_sensor(0x6F12, 0x99BF);
   write_cmos_sensor(0x602A, 0x19B6);
@@ -1783,7 +1781,7 @@ static void sensor_init(void)
     mdelay(5);//vivo zcw++ 20141027 Add for prevent WAIT_IRQ timeout	
     LOG_INF("Exit\n");
   //s 2014/12/01, bruce
-  } else if (chip_id == 0xD101) {
+  } else if ((chip_id == 0xD101) || (chip_id == 0xD201)) {
     LOG_INF("-- sensor_init, chip id = 0xD101\n");
   write_cmos_sensor(0x6028, 0x4000);
   write_cmos_sensor(0x6214, 0x7971);
@@ -1922,7 +1920,7 @@ static void sensor_init(void)
   write_cmos_sensor(0xF42E, 0x200C);
   write_cmos_sensor(0xF49E, 0x004C);
   write_cmos_sensor(0xF4A6, 0x00F0);
-//  write_cmos_sensor(0x3AFA, 0xFBB8);  //eliminated
+//  write_cmos_sensor(0x3AFA, 0xFBB8);   //eliminated
   write_cmos_sensor(0xF49C, 0x0000);
   write_cmos_sensor(0xF496, 0x0000);
   write_cmos_sensor(0xF476, 0x0040);
@@ -1945,7 +1943,7 @@ static void sensor_init(void)
   write_cmos_sensor(0x3B5C, 0x0006);
   write_cmos_sensor(0x307C, 0x0430);
   write_cmos_sensor(0x3A92, 0x0807);
-  write_cmos_sensor(0x3AFA, 0xFBF8);  
+  write_cmos_sensor(0x3AFA, 0xFBF8);
   write_cmos_sensor(0x602A, 0x195E);
   write_cmos_sensor(0x6F12, 0x99BF);
   write_cmos_sensor(0x602A, 0x19B6);
@@ -1954,11 +1952,15 @@ static void sensor_init(void)
   write_cmos_sensor(0x6F12, 0x99BF);
   write_cmos_sensor(0x602A, 0x1A66);
   write_cmos_sensor(0x6F12, 0x99BF);
+  
+  //For PDAF on, OB=64 & dunamic bpc must off
   write_cmos_sensor(0x6028, 0x2000);
   write_cmos_sensor(0x602A, 0x14F0);
   write_cmos_sensor(0x6F12, 0x0040); //OB must=64 when PDAF
   write_cmos_sensor(0x6F12, 0x0040); //OB must=64 when PDAF
   write_cmos_sensor(0x0b00, 0x0000); //dynamic bpc must off when using PDAF
+  
+  //For power consumption, need apply straong MTK bpc patch
   write_cmos_sensor_8(0x0B05,0x00);   
   write_cmos_sensor_8(0x0B08,0x00);   
   write_cmos_sensor(0x6028, 0x2000);       
@@ -1968,146 +1970,48 @@ static void sensor_init(void)
     LOG_INF("-- sensor_init, Read back other chip id = 0x%x\n", chip_id);
   }
   //e 2014/12/01, bruce
+  #ifdef S5K3M_USE_WB_OTP
+  s5k3m_update_otp_wb();//yixuhong 20150729 add otp
+  #endif
 }	/*	sensor_init  */
 /**********************************************************************************************************************/
 //$MIPI[Width:2096,Height:1552,Format:RAW10,Lane:4,ErrorCheck:0,PolarityData:0,PolarityClock:0,Buffer:4,DataRate:1260,useEmbData:0]
 //$MV1[MCLK:24,Width:2096,Height:1552,Format:MIPI_RAW10,mipi_lane:4,mipi_datarate:1260,pvi_pclk_inverse:0]
 //=====================================================
-// 3M2XX EVT 2.0
+// 3M2XXM
 // 2X2 Binning Normal Mode
 // X_output size : 2096
 // Y_output size : 1552
 // Frame_rate : 30.06 fps
 // Output_format RAW 10
 // Output_lanes 4
-// Output_clock_mhz : 1260 Mhz
+// Output_clock_mhz : 1272 Mhz
 // System_clock_mhz : 440 Mhz
 // Input_clock_mhz : 24 Mhz
-// TnP R532
+// TnP R651
 //=====================================================
 /**********************************************************************************************************************/
 static void preview_setting(void)
 {
         // s 2014/12/01, bruce
 	kal_uint16 chip_id = 0;
-	int retry=0;
-	kal_uint32 frame_count = 0;
-        chip_id = read_cmos_sensor(0x0002);
+
+    chip_id = read_cmos_sensor(0x0002);
 	
 	if (chip_id == 0xC001) {
 		LOG_INF("--preview_setting chip_id = 0xC001\n");
         // e 2014/12/01, bruce
 	LOG_INF("hesong 3 Preview E! ");
 	//p200
+	printk("YC preview_setting 1 ######################################## \n"); 
 
-write_cmos_sensor(0x6028,0x4000);
-write_cmos_sensor(0x32CA,0x022B);
-write_cmos_sensor(0x32D6,0x022B);
-write_cmos_sensor(0x0344,0x000C);
-write_cmos_sensor(0x0346,0x0008);
-write_cmos_sensor(0x0348,0x106F);   //MirrorFlip case: 73 for bpc off, 6F for bpc on
-write_cmos_sensor(0x034A,0x0C2F);   //MirrorFlip case: 37 for bpc off, 2F for bpc on
-write_cmos_sensor(0x034C,0x0830);
-write_cmos_sensor(0x034E,0x0610);
-write_cmos_sensor_8(0x0901,0x12);
-write_cmos_sensor(0x0380,0x0001);
-write_cmos_sensor(0x0382,0x0001);
-write_cmos_sensor(0x0384,0x0001);
-write_cmos_sensor(0x0386,0x0003);
-write_cmos_sensor(0x0400,0x0001);
-write_cmos_sensor(0x0404,0x0020);
-write_cmos_sensor_8(0x0114,0x03);
-write_cmos_sensor_8(0x0111,0x02);
-write_cmos_sensor(0x112C,0x0000);
-write_cmos_sensor(0x112E,0x0000);
-write_cmos_sensor(0x0136,0x1800);
-write_cmos_sensor(0x0304,0x0006);
-write_cmos_sensor(0x0306,0x006E);
-write_cmos_sensor(0x0302,0x0001);
-write_cmos_sensor(0x0300,0x0004);
-write_cmos_sensor(0x030C,0x0004);
-write_cmos_sensor(0x030E,0x006A);
-write_cmos_sensor(0x030A,0x0001);
-write_cmos_sensor(0x0308,0x0008);
-write_cmos_sensor(0x0342,0x11F0);
-write_cmos_sensor(0x0340,0x0C74);
-write_cmos_sensor(0x0202,0x0200);
-write_cmos_sensor(0x0200,0x0400);
-write_cmos_sensor(0x3BBC,0x0000);
-write_cmos_sensor(0x3BBE,0x0000);
-write_cmos_sensor(0x3BC0,0x0000);
-write_cmos_sensor(0x3BC2,0x0000);
-write_cmos_sensor(0x3BC4,0x0000);
-write_cmos_sensor(0x3BC6,0x0000);
-write_cmos_sensor(0x3BC8,0x0000);
-write_cmos_sensor(0x3BCA,0x0000);
-write_cmos_sensor(0x3BCC,0x0000);
-write_cmos_sensor(0x3BCE,0x0000);
-write_cmos_sensor(0x3BD0,0x0000);
-write_cmos_sensor(0x3BD2,0x0000);
-write_cmos_sensor(0x3BD4,0x0000);
-write_cmos_sensor(0x3BD6,0x0000);
-write_cmos_sensor(0x3BD8,0x0000);
-write_cmos_sensor(0x3BDA,0x0000);
-write_cmos_sensor_8(0x3B3C,0x01);
-write_cmos_sensor(0x3B34,0x3030);
-write_cmos_sensor(0x3B36,0x3030);
-write_cmos_sensor(0x3B38,0x3030);
-write_cmos_sensor(0x3B3A,0x3030);
-write_cmos_sensor(0x3C20,0x0080);
-write_cmos_sensor(0x3C22,0x0080);
-write_cmos_sensor(0x3C24,0x0080);
-write_cmos_sensor(0x3C26,0x0080);
-write_cmos_sensor(0x3C28,0x0080);
-write_cmos_sensor(0x3C2A,0x0080);
-write_cmos_sensor(0x3C2C,0x0080);
-write_cmos_sensor(0x3C2E,0x0080);
-write_cmos_sensor(0x3C30,0x0080);
-write_cmos_sensor(0x3C32,0x0080);
-write_cmos_sensor(0x3C34,0x0080);
-write_cmos_sensor(0x3C36,0x0080);
-write_cmos_sensor(0x3C38,0x0080);
-write_cmos_sensor(0x3C3A,0x0080);
-write_cmos_sensor(0x3C3C,0x0080);
-write_cmos_sensor(0x3C3E,0x0080);
-write_cmos_sensor(0x306A,0x0068);
-write_cmos_sensor_8(0x0100,0x01);
-
-	LOG_INF("Exit");
-// s 2014/12/01, bruce
-} else if (chip_id == 0xD101) {
-	LOG_INF("--preview_setting, chip_id = 0xD101\n");
-	write_cmos_sensor_8(0x0100,0x00);
-	
-	while(retry<TRY_NUM)
-	{
-		write_cmos_sensor (0x602C,0x4000);
-	        write_cmos_sensor (0x602E, 0x0005);
-		frame_count = read_cmos_sensor (0x6F12);
-		LOG_INF("frame_count = 0x%x",frame_count);
-		if((frame_count>>8)!=0xff)
-		{
-			mdelay(10);
-			retry++;
-			LOG_INF("Sensor has not stop");
-		}
-		else
-		{
-			retry=0;
-			LOG_INF("Sensor has stop");
-			break;
-		}
-	}
-
-	write_cmos_sensor(0x6028,0x2000);
-	write_cmos_sensor(0x602A,0x14F0);
-	write_cmos_sensor(0x6F12,0x0040);
-	write_cmos_sensor(0x6F12,0x0040);
 	write_cmos_sensor(0x6028,0x4000);
-	write_cmos_sensor(0x0344,0x000C);
-	write_cmos_sensor(0x0346,0x0008);
-	write_cmos_sensor(0x0348,0x106F);  //MirrorFlip case: 73 for bpc off, 6F for bpc on
-	write_cmos_sensor(0x034A,0x0C2F);  //MirrorFlip case: 37 for bpc off, 2F for bpc on
+	write_cmos_sensor(0x32CA,0x022B);
+	write_cmos_sensor(0x32D6,0x022B);
+	write_cmos_sensor(0x0344,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0346,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0348,0x106F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034A,0x0C2F);//bpc off, no matter mirrir flip, PV & cap FOV the same
 	write_cmos_sensor(0x034C,0x0830);
 	write_cmos_sensor(0x034E,0x0610);
 	write_cmos_sensor_8(0x0901,0x12);
@@ -2127,7 +2031,89 @@ write_cmos_sensor_8(0x0100,0x01);
 	write_cmos_sensor(0x0302,0x0001);
 	write_cmos_sensor(0x0300,0x0004);
 	write_cmos_sensor(0x030C,0x0004);
-	write_cmos_sensor(0x030E,0x0032);
+	write_cmos_sensor(0x030E,0x006A);
+	write_cmos_sensor(0x030A,0x0001);
+	write_cmos_sensor(0x0308,0x0008);
+	write_cmos_sensor(0x0342,0x11F0);
+	write_cmos_sensor(0x0340,0x0C74);
+	write_cmos_sensor(0x0202,0x0200);
+	write_cmos_sensor(0x0200,0x0400);
+	write_cmos_sensor(0x3BBC,0x0000);
+	write_cmos_sensor(0x3BBE,0x0000);
+	write_cmos_sensor(0x3BC0,0x0000);
+	write_cmos_sensor(0x3BC2,0x0000);
+	write_cmos_sensor(0x3BC4,0x0000);
+	write_cmos_sensor(0x3BC6,0x0000);
+	write_cmos_sensor(0x3BC8,0x0000);
+	write_cmos_sensor(0x3BCA,0x0000);
+	write_cmos_sensor(0x3BCC,0x0000);
+	write_cmos_sensor(0x3BCE,0x0000);
+	write_cmos_sensor(0x3BD0,0x0000);
+	write_cmos_sensor(0x3BD2,0x0000);
+	write_cmos_sensor(0x3BD4,0x0000);
+	write_cmos_sensor(0x3BD6,0x0000);
+	write_cmos_sensor(0x3BD8,0x0000);
+	write_cmos_sensor(0x3BDA,0x0000);
+	write_cmos_sensor_8(0x3B3C,0x01);
+	write_cmos_sensor(0x3B34,0x3030);
+	write_cmos_sensor(0x3B36,0x3030);
+	write_cmos_sensor(0x3B38,0x3030);
+	write_cmos_sensor(0x3B3A,0x3030);
+	write_cmos_sensor(0x3C20,0x0080);
+	write_cmos_sensor(0x3C22,0x0080);
+	write_cmos_sensor(0x3C24,0x0080);
+	write_cmos_sensor(0x3C26,0x0080);
+	write_cmos_sensor(0x3C28,0x0080);
+	write_cmos_sensor(0x3C2A,0x0080);
+	write_cmos_sensor(0x3C2C,0x0080);
+	write_cmos_sensor(0x3C2E,0x0080);
+	write_cmos_sensor(0x3C30,0x0080);
+	write_cmos_sensor(0x3C32,0x0080);
+	write_cmos_sensor(0x3C34,0x0080);
+	write_cmos_sensor(0x3C36,0x0080);
+	write_cmos_sensor(0x3C38,0x0080);
+	write_cmos_sensor(0x3C3A,0x0080);
+	write_cmos_sensor(0x3C3C,0x0080);
+	write_cmos_sensor(0x3C3E,0x0080);
+	write_cmos_sensor(0x306A,0x0068);
+	write_cmos_sensor_8(0x0100,0x01);
+
+	LOG_INF("Exit");
+// s 2014/12/01, bruce
+} else if ((chip_id == 0xD101) || (chip_id == 0xD201)) {
+	LOG_INF("--preview_setting, chip_id = 0xD101\n");
+	write_cmos_sensor_8(0x0100,0x00);
+	mdelay(200);
+
+	write_cmos_sensor(0x6028,0x2000);
+	write_cmos_sensor(0x602A,0x14F0);
+	write_cmos_sensor(0x6F12,0x0040);
+	write_cmos_sensor(0x6F12,0x0040);
+	write_cmos_sensor(0x6028,0x4000);
+	write_cmos_sensor(0x0344,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0346,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0348,0x106F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034A,0x0C2F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034C,0x0830);
+	write_cmos_sensor(0x034E,0x0610);
+	write_cmos_sensor_8(0x0901,0x12);
+	write_cmos_sensor(0x0380,0x0001);
+	write_cmos_sensor(0x0382,0x0001);
+	write_cmos_sensor(0x0384,0x0001);
+	write_cmos_sensor(0x0386,0x0003);
+	write_cmos_sensor(0x0400,0x0001);
+	write_cmos_sensor(0x0404,0x0020);
+	write_cmos_sensor_8(0x0114,0x03);
+	write_cmos_sensor_8(0x0111,0x02);
+	write_cmos_sensor(0x112C,0x0000);
+	write_cmos_sensor(0x112E,0x0000);
+	write_cmos_sensor(0x0136,0x1800);
+	write_cmos_sensor(0x0304,0x0006);
+	write_cmos_sensor(0x0306,0x006E);
+	write_cmos_sensor(0x0302,0x0001);
+	write_cmos_sensor(0x0300,0x0004);
+	write_cmos_sensor(0x030C,0x0004);
+	write_cmos_sensor(0x030E,0x006A);
 	write_cmos_sensor(0x030A,0x0001);
 	write_cmos_sensor(0x0308,0x0008);
 	write_cmos_sensor(0x0342,0x11F0);
@@ -2140,11 +2126,14 @@ write_cmos_sensor_8(0x0100,0x01);
 	write_cmos_sensor(0x3B38,0x3030);
 	write_cmos_sensor(0x3B3A,0x3030);
 	write_cmos_sensor(0x306A,0x0068);
-	write_cmos_sensor_8(0x0100,0x01);	
+	write_cmos_sensor_8(0x0100,0x01);
 } else {
 	LOG_INF("--preview_setting, chip_id = 0x0%x\n", chip_id);
 }
 // e 2014/12/01, bruce
+#ifdef S5K3M_USE_WB_OTP
+	s5k3m_update_otp_wb();//yixuhong 20150729 add otp
+#endif	
 }	/*	preview_setting  */
 /**********************************************************************************************************************/
 //$MIPI[Width:4192,Height:3104,Format:RAW10,Lane:4,ErrorCheck:0,PolarityData:0,PolarityClock:0,Buffer:4,DataRate:1260,useEmbData:0]
@@ -2169,22 +2158,19 @@ static void normal_capture_setting(void)
 {
 	// s bruce, 2014/12/01
 	kal_uint16 chip_id = 0;
-	int retry=0;
-	kal_uint32 frame_count = 0;
 	chip_id = read_cmos_sensor(0x0002);
 	if (chip_id == 0xC001) {
 	LOG_INF("-- normal_capture_settings, chip id = 0xC001\n");
 	// e bruce, 2014/12/01
 	LOG_INF("hesong 3 Normal capture E! ");
 
-
 	write_cmos_sensor(0x6028,0x4000);
 	write_cmos_sensor(0x32CA,0x022B);
 	write_cmos_sensor(0x32D6,0x022B);
-	write_cmos_sensor(0x0344,0x000C);
-	write_cmos_sensor(0x0346,0x000C);
-	write_cmos_sensor(0x0348,0x106F);  //MirrorFlip case: 6F for bpc off, 73 for bpc on
-	write_cmos_sensor(0x034A,0x0C2F);  //MirrorFlip case: 2F for bpc off, 33 for bpc on
+	write_cmos_sensor(0x0344,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0346,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0348,0x106F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034A,0x0C2F);//bpc off, no matter mirrir flip, PV & cap FOV the same
 	write_cmos_sensor(0x034C,0x1060);
 	write_cmos_sensor(0x034E,0x0C20);
 	write_cmos_sensor_8(0x0901,0x11);
@@ -2251,117 +2237,21 @@ static void normal_capture_setting(void)
 	write_cmos_sensor(0x306A,0x0068);
 	write_cmos_sensor_8(0x0100,0x01);
 
-
-
-
 	LOG_INF( "Exit!");	
 // s bruce, 2014/12/01
-} else if (chip_id == 0xD101) {
-		LOG_INF( "-- normal_capture_setting, chip_id = 0xD101\n");
-		write_cmos_sensor_8(0x0100,0x00);
-			
-		while(retry<TRY_NUM)
-		{
-			write_cmos_sensor (0x602C,0x4000);
-			write_cmos_sensor (0x602E, 0x0005);
-			frame_count = read_cmos_sensor (0x6F12);
-			LOG_INF("frame_count = 0x%x",frame_count);
-			if((frame_count>>8)!=0xff)
-			{
-				mdelay(10);
-				retry++;
-				LOG_INF("Sensor has not stop");
-			}
-			else
-			{
-				retry=0;
-				LOG_INF("Sensor has stop");
-				break;
-			}
-		}
-		write_cmos_sensor(0x6028,0x2000);
-		write_cmos_sensor(0x602A,0x14F0);
-		write_cmos_sensor(0x6F12,0x0040);
-		write_cmos_sensor(0x6F12,0x0040);
-		write_cmos_sensor(0x6028,0x4000);
-		write_cmos_sensor(0x0344,0x000C);
-		write_cmos_sensor(0x0346,0x000C);
-		write_cmos_sensor(0x0348,0x106F);  //MirrorFlip case:6F for bpc off, 73 for bpc on
-		write_cmos_sensor(0x034A,0x0C2F);  //MirrorFlip case:2F for bpc off, 33 for bpc on
-		write_cmos_sensor(0x034C,0x1060);
-		write_cmos_sensor(0x034E,0x0C20);
-		write_cmos_sensor_8(0x0901,0x11);
-		write_cmos_sensor(0x0380,0x0001);
-		write_cmos_sensor(0x0382,0x0001);
-		write_cmos_sensor(0x0384,0x0001);
-		write_cmos_sensor(0x0386,0x0001);
-		write_cmos_sensor(0x0400,0x0002);
-		write_cmos_sensor(0x0404,0x0010);
-		write_cmos_sensor_8(0x0114,0x03);
-		write_cmos_sensor_8(0x0111,0x02);
-		write_cmos_sensor(0x112C,0x0000);
-		write_cmos_sensor(0x112E,0x0000);
-		write_cmos_sensor(0x0136,0x1800);
-		write_cmos_sensor(0x0304,0x0006);
-		write_cmos_sensor(0x0306,0x006E);
-		write_cmos_sensor(0x0302,0x0001);
-		write_cmos_sensor(0x0300,0x0004);
-		write_cmos_sensor(0x030C,0x0004);
-		write_cmos_sensor(0x030E,0x006A);
-		write_cmos_sensor(0x030A,0x0001);
-		write_cmos_sensor(0x0308,0x0008);
-		write_cmos_sensor(0x0342,0x11F0);
-		write_cmos_sensor(0x0340,0x0C74);
-		write_cmos_sensor(0x0202,0x0200);
-		write_cmos_sensor(0x0200,0x0400);
-		write_cmos_sensor_8(0x3B3C,0x01);
-		write_cmos_sensor(0x3B34,0x3030);
-		write_cmos_sensor(0x3B36,0x3030);
-		write_cmos_sensor(0x3B38,0x3030);
-		write_cmos_sensor(0x3B3A,0x3030);
-		write_cmos_sensor(0x306A,0x0068);
-		write_cmos_sensor_8(0x0100,0x01);	
-	} else {
-	LOG_INF( "-- normal_capture_setting, chip_id = 0x%x\n", chip_id);
-	}
-// e bruce, 2014/12/01	
-}
-
-/**********************************************************************************************************************/
-//$MIPI[Width:4192,Height:3104,Format:RAW10,Lane:4,ErrorCheck:0,PolarityData:0,PolarityClock:0,Buffer:4,DataRate:1260,useEmbData:0]
-//$MV1[MCLK:24,Width:4192,Height:3104,Format:MIPI_RAW10,mipi_lane:4,mipi_datarate:1260,pvi_pclk_inverse:0]
-//=====================================================
-// 3M2XXM
-// Full Resolution normal Mode
-// X_output size : 4192
-// Y_output size : 3104
-// Frame_rate : 24.07 fps
-// Output_format RAW 10
-// Output_lanes 4
-// Output_clock_mhz : 1260 Mhz
-// System_clock_mhz : 352 Mhz , VT_PIX_clk : 88Mhz
-// Input_clock_mhz : 24 Mhz
-// TnP R651
-//=====================================================
-/**********************************************************************************************************************/
-static void pip_capture_setting(void)
-{
-	// s bruce, 2014/12/01
-	kal_uint16 chip_id = 0;
-	int retry=0;
-	kal_uint32 frame_count = 0;
-	chip_id = read_cmos_sensor(0x0002);
-	if (chip_id == 0xC001) {
-	LOG_INF( "--pip_capture_setting, chip_id = 0xC001\n");
-	// e bruce, 2014/12/01
-	LOG_INF( "S5K3M2 PIP setting Enter!"); 
+} else if ((chip_id == 0xD101) || (chip_id == 0xD201)) {
+	LOG_INF( "-- normal_capture_setting, chip_id = 0xD101\n");
+	write_cmos_sensor_8(0x0100,0x00);
+	mdelay(200);
+	write_cmos_sensor(0x6028,0x2000);
+	write_cmos_sensor(0x602A,0x14F0);
+	write_cmos_sensor(0x6F12,0x0040);
+	write_cmos_sensor(0x6F12,0x0040);
 	write_cmos_sensor(0x6028,0x4000);
-	write_cmos_sensor(0x32CA,0x022B);
-	write_cmos_sensor(0x32D6,0x022B);
-	write_cmos_sensor(0x0344,0x000C);
-	write_cmos_sensor(0x0346,0x000C);
-	write_cmos_sensor(0x0348,0x1073);
-	write_cmos_sensor(0x034A,0x0C33);
+	write_cmos_sensor(0x0344,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0346,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0348,0x106F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034A,0x0C2F);//bpc off, no matter mirrir flip, PV & cap FOV the same
 	write_cmos_sensor(0x034C,0x1060);
 	write_cmos_sensor(0x034E,0x0C20);
 	write_cmos_sensor_8(0x0901,0x11);
@@ -2379,13 +2269,89 @@ static void pip_capture_setting(void)
 	write_cmos_sensor(0x0304,0x0006);
 	write_cmos_sensor(0x0306,0x006E);
 	write_cmos_sensor(0x0302,0x0001);
-	write_cmos_sensor(0x0300,0x0005);
+	write_cmos_sensor(0x0300,0x0004);
 	write_cmos_sensor(0x030C,0x0004);
 	write_cmos_sensor(0x030E,0x006A);
 	write_cmos_sensor(0x030A,0x0001);
 	write_cmos_sensor(0x0308,0x0008);
 	write_cmos_sensor(0x0342,0x11F0);
 	write_cmos_sensor(0x0340,0x0C74);
+	write_cmos_sensor(0x0202,0x0200);
+	write_cmos_sensor(0x0200,0x0400);
+	write_cmos_sensor_8(0x3B3C,0x01);
+	write_cmos_sensor(0x3B34,0x3030);
+	write_cmos_sensor(0x3B36,0x3030);
+	write_cmos_sensor(0x3B38,0x3030);
+	write_cmos_sensor(0x3B3A,0x3030);
+	write_cmos_sensor(0x306A,0x0068);
+	write_cmos_sensor_8(0x0100,0x01);
+} else {
+	LOG_INF( "-- normal_capture_setting, chip_id = 0x%x\n", chip_id);
+}
+// e bruce, 2014/12/01	
+#ifdef S5K3M_USE_WB_OTP
+	s5k3m_update_otp_wb();//yixuhong 20150729 add otp
+#endif	
+}
+
+/**********************************************************************************************************************/
+//$MIPI[Width:4192,Height:3104,Format:RAW10,Lane:4,ErrorCheck:0,PolarityData:0,PolarityClock:0,Buffer:4,DataRate:1260,useEmbData:0]
+//$MV1[MCLK:24,Width:4192,Height:3104,Format:MIPI_RAW10,mipi_lane:4,mipi_datarate:1260,pvi_pclk_inverse:0]
+//=====================================================
+// 3M2XXM
+// Full Resolution normal Mode
+// X_output size : 4192
+// Y_output size : 3104
+// Frame_rate : 24.07 fps
+// Output_format RAW 10
+// Output_lanes 4
+// Output_clock_mhz : 1272 Mhz
+// System_clock_mhz : 352 Mhz , VT_PIX_clk : 88Mhz
+// Input_clock_mhz : 24 Mhz
+// TnP R651
+//=====================================================
+/**********************************************************************************************************************/
+static void pip_capture_setting(void)
+{
+	// s bruce, 2014/12/01
+	kal_uint16 chip_id = 0;
+		
+	chip_id = read_cmos_sensor(0x0002);
+	if (chip_id == 0xC001) {
+	LOG_INF( "--pip_capture_setting, chip_id = 0xC001\n");
+	// e bruce, 2014/12/01
+	LOG_INF( "S5K3M2 PIP setting Enter!"); 
+	write_cmos_sensor(0x6028,0x4000);
+	write_cmos_sensor(0x32CA,0x022B);
+	write_cmos_sensor(0x32D6,0x022B);
+	write_cmos_sensor(0x0344,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0346,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0348,0x106F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034A,0x0C2F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034C,0x1060);
+	write_cmos_sensor(0x034E,0x0C20);
+	write_cmos_sensor_8(0x0901,0x11);
+	write_cmos_sensor(0x0380,0x0001);
+	write_cmos_sensor(0x0382,0x0001);
+	write_cmos_sensor(0x0384,0x0001);
+	write_cmos_sensor(0x0386,0x0001);
+	write_cmos_sensor(0x0400,0x0002);
+	write_cmos_sensor(0x0404,0x0010);
+	write_cmos_sensor_8(0x0114,0x03);
+	write_cmos_sensor_8(0x0111,0x02);
+	write_cmos_sensor(0x112C,0x0000);
+	write_cmos_sensor(0x112E,0x0000);
+	write_cmos_sensor(0x0136,0x1800);
+	write_cmos_sensor(0x0304,0x0006);
+	write_cmos_sensor(0x0306,0x0064);
+	write_cmos_sensor(0x0302,0x0001);
+	write_cmos_sensor(0x0300,0x0004);
+	write_cmos_sensor(0x030C,0x0004);
+	write_cmos_sensor(0x030E,0x006A);
+	write_cmos_sensor(0x030A,0x0001);
+	write_cmos_sensor(0x0308,0x0008);
+	write_cmos_sensor(0x0342,0x11F0);
+	write_cmos_sensor(0x0340,0x0F1E);
 	write_cmos_sensor(0x0202,0x0200);
 	write_cmos_sensor(0x0200,0x0400);
 	write_cmos_sensor(0x3BBC,0x0000);
@@ -2429,40 +2395,21 @@ static void pip_capture_setting(void)
 	write_cmos_sensor_8(0x0100,0x01);
 	LOG_INF("Exit");
 // s bruce, 2014/12/01
-} else if (chip_id == 0xD101) {
-	LOG_INF( "--pip_capture_setting, chip_id = 0x%x\n", chip_id);
-	
+} else if ((chip_id == 0xD101) || (chip_id == 0xD201)) 
+{
+	LOG_INF( "--pip_capture_setting, chip_id = 0x%x\n", chip_id);	
 	write_cmos_sensor_8(0x0100,0x00);
-            
-	while(retry<TRY_NUM)
-	{
-		write_cmos_sensor (0x602C,0x4000);
-		write_cmos_sensor (0x602E, 0x0005);
-		frame_count = read_cmos_sensor (0x6F12);
-		LOG_INF("frame_count = 0x%x",frame_count);
-		if((frame_count>>8)!=0xff)
-		{
-			mdelay(10);
-			retry++;
-			LOG_INF("Sensor has not stop");
-		}
-		else
-		{
-			retry=0;
-			LOG_INF("Sensor has stop");
-			break;
-		}
-	}
+	mdelay(200);
 	write_cmos_sensor(0x6028,0x2000);
 	write_cmos_sensor(0x602A,0x14F0);
 	write_cmos_sensor(0x6F12,0x0040);
 	write_cmos_sensor(0x6F12,0x0040);
 	write_cmos_sensor(0x6028,0x4000);
-	write_cmos_sensor(0x0344,0x000C);
-	write_cmos_sensor(0x0346,0x000C);
-	write_cmos_sensor(0x0348,0x1073);
-	write_cmos_sensor(0x034A,0x0C33);
-	write_cmos_sensor(0x034C,0x0160);
+	write_cmos_sensor(0x0344,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0346,0x0010);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x0348,0x106F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034A,0x0C2F);//bpc off, no matter mirrir flip, PV & cap FOV the same
+	write_cmos_sensor(0x034C,0x1060);
 	write_cmos_sensor(0x034E,0x0C20);
 	write_cmos_sensor_8(0x0901,0x11);
 	write_cmos_sensor(0x0380,0x0001);
@@ -2477,15 +2424,15 @@ static void pip_capture_setting(void)
 	write_cmos_sensor(0x112E,0x0000);
 	write_cmos_sensor(0x0136,0x1800);
 	write_cmos_sensor(0x0304,0x0006);
-	write_cmos_sensor(0x0306,0x006E);
+	write_cmos_sensor(0x0306,0x0064);  // init 64
 	write_cmos_sensor(0x0302,0x0001);
-	write_cmos_sensor(0x0300,0x0005);
+	write_cmos_sensor(0x0300,0x0006);
 	write_cmos_sensor(0x030C,0x0004);
-	write_cmos_sensor(0x030E,0x006A);
+	write_cmos_sensor(0x030E,0x0046);
 	write_cmos_sensor(0x030A,0x0001);
 	write_cmos_sensor(0x0308,0x0008);
 	write_cmos_sensor(0x0342,0x11F0);
-	write_cmos_sensor(0x0340,0x0C74);
+	write_cmos_sensor(0x0340,0x0F1E);
 	write_cmos_sensor(0x0202,0x0200);
 	write_cmos_sensor(0x0200,0x0400);
 	write_cmos_sensor_8(0x3B3C,0x01);
@@ -2494,12 +2441,15 @@ static void pip_capture_setting(void)
 	write_cmos_sensor(0x3B38,0x3030);
 	write_cmos_sensor(0x3B3A,0x3030);
 	write_cmos_sensor(0x306A,0x0068);
-	write_cmos_sensor_8(0x0100,0x01);	
+	write_cmos_sensor_8(0x0100,0x01);		
 }
 else {
 	LOG_INF( "--pip_capture_setting, chip_id = 0x%x\n", chip_id);	
-	}
+}
 // e bruce, 2014/12/01
+#ifdef S5K3M_USE_WB_OTP
+	s5k3m_update_otp_wb();//yixuhong 20150729 add otp
+#endif	
 }
 
 static void capture_setting(kal_uint16 currefps)
@@ -2523,25 +2473,23 @@ static void normal_video_setting(kal_uint16 currefps)
 //$MV1[MCLK:24,Width:688,Height:512,Format:MIPI_RAW10,mipi_lane:4,mipi_datarate:1260,pvi_pclk_inverse:0]
 
 //=====================================================
-// 3M2XX EVT 2.0
+// 3M2XXM
 // 6X6 Binning Normal Mode
 // X_output size : 688
 // Y_output size : 512
 // Frame_rate : 120.07 fps
 // Output_format RAW 10
 // Output_lanes 4
-// Output_clock_mhz : 1260 Mhz
+// Output_clock_mhz : 1272 Mhz
 // System_clock_mhz : 440 Mhz
 // Input_clock_mhz : 24 Mhz
-// TnP R532
+// TnP R651
 //=====================================================
 /**********************************************************************************************************************/
 static void hs_video_setting(void)
 {
 	// s bruce, 2014/12/01
 	kal_uint16 chip_id = 0;
-	int retry=0;
-	kal_uint32 frame_count = 0;
 	chip_id = read_cmos_sensor(0x0002);
 	if (chip_id == 0xC001) {
 		LOG_INF("--hs_video_setting. chip_id = 0xC001\n");
@@ -2622,30 +2570,10 @@ static void hs_video_setting(void)
 	write_cmos_sensor(0x306A,0x0068);
 	write_cmos_sensor_8(0x0100,0x01);
 // s bruce 2014/12/01
-} else if (chip_id == 0xD101) {
+} else if ((chip_id == 0xD101) || (chip_id == 0xD201)) {
 	LOG_INF("--hs_video_setting. chip_id = 0xD101\n");
-	
 	write_cmos_sensor_8(0x0100,0x00);
-            
-	while(retry<TRY_NUM)
-	{
-		write_cmos_sensor (0x602C,0x4000);
-		write_cmos_sensor (0x602E, 0x0005);
-		frame_count = read_cmos_sensor (0x6F12);
-		LOG_INF("frame_count = 0x%x",frame_count);
-		if((frame_count>>8)!=0xff)
-		{
-			mdelay(10);
-			retry++;
-			LOG_INF("Sensor has not stop");
-		}
-		else
-		{
-			retry=0;
-			LOG_INF("Sensor has stop");
-			break;
-		}
-	}
+	mdelay(200);
 	write_cmos_sensor(0x6028,0x2000);
 	write_cmos_sensor(0x602A,0x14F0);
 	write_cmos_sensor(0x6F12,0x0040);
@@ -2690,11 +2618,13 @@ static void hs_video_setting(void)
 	write_cmos_sensor_8(0x0100,0x01);
 	write_cmos_sensor_8(0x0100,0x01);	
 	
-	
 } else {
 	LOG_INF("--hs_video_setting. chip_id = 0x%x\n", chip_id);
 }
 // e bruce 2014/12/01
+#ifdef S5K3M_USE_WB_OTP
+	s5k3m_update_otp_wb();//yixuhong 20150729 add otp
+#endif	
 }
 
 /**********************************************************************************************************************/
@@ -2718,8 +2648,6 @@ static void slim_video_setting(void)
 {
 	// s bruce, 2014/12/01
 	kal_uint16 chip_id = 0;
-	int retry=0;
-	kal_uint32 frame_count = 0;
 	chip_id = read_cmos_sensor(0x0002);
 	if (chip_id == 0xC001) {
 		LOG_INF("--slim_video_setting. chip_id = 0xC001\n");
@@ -2798,31 +2726,11 @@ static void slim_video_setting(void)
 	write_cmos_sensor(0x306A,0x0068);
 
 	write_cmos_sensor_8(0x0100,0x01);
-	//s bruce, 2014/12/01
-	} else if (chip_id == 0xD101) {
+//s bruce, 2014/12/01
+} else if ((chip_id == 0xD101) || (chip_id == 0xD201)) {
 	LOG_INF("--slim_video_setting. chip_id = 0xD101");
-	
 	write_cmos_sensor_8(0x0100,0x00);
-            
-	while(retry<TRY_NUM)
-	{
-		write_cmos_sensor (0x602C,0x4000);
-		write_cmos_sensor (0x602E, 0x0005);
-		frame_count = read_cmos_sensor (0x6F12);
-		LOG_INF("frame_count = 0x%x",frame_count);
-		if((frame_count>>8)!=0xff)
-		{
-			mdelay(10);
-			retry++;
-			LOG_INF("Sensor has not stop");
-		}
-		else
-		{
-			retry=0;
-			LOG_INF("Sensor has stop");
-			break;
-		}
-	}
+	mdelay(200);
 	write_cmos_sensor(0x6028,0x2000);
 	write_cmos_sensor(0x602A,0x14F0);
 	write_cmos_sensor(0x6F12,0x0040);
@@ -2869,6 +2777,9 @@ static void slim_video_setting(void)
 	} else {
 		LOG_INF("--slim_video_setting. chip_id = 0x%x\n", chip_id);
 	}
+#ifdef S5K3M_USE_WB_OTP	
+	s5k3m_update_otp_wb();//yixuhong 20150729 add otp
+#endif	
 //e bruce, 2014/12/01
 }
 
@@ -2888,51 +2799,46 @@ static void slim_video_setting(void)
 * GLOBALS AFFECTED
 *
 *************************************************************************/
+//extern int read_s5k3m2_eeprom_mtk_fmt(void);
 static kal_uint32 get_imgsensor_id(UINT32 *sensor_id) 
 {
 	kal_uint8 i = 0;
     kal_uint8 retry = 1;
-	char data[1] = {0};
-	char data_mid[1] = {0};
-    
     /*sensor have two i2c address 0x6c 0x6d & 0x21 0x20, we should detect the module used i2c address*/
+	printk("YC get_imgsensor_id 1 ######################################## \n"); 
+
+	
     while (imgsensor_info.i2c_addr_table[i] != 0xff) {
         spin_lock(&imgsensor_drv_lock);
         imgsensor.i2c_write_id = imgsensor_info.i2c_addr_table[i];
         spin_unlock(&imgsensor_drv_lock);
         do {
-		//read MID
-		
-		data_mid[0] = Read_MID_form_eeprom();
-		LOG_INF("[wuyt3]MID data_mid[0]=%x\n", data_mid[0]);
-		
-		//read SID
-		write_cmos_sensor(0x602C,0x4000);
-		write_cmos_sensor(0x602E,0x0000);
-		*sensor_id = read_cmos_sensor(0x6F12);
-		//final
-		
-		 LOG_INF("[wuyt3]sensor id = 0x%x,data_mid[0]=0x%x, imgsensor_info.sensor_id=0x%x\n",*sensor_id,data_mid[0], imgsensor_info.sensor_id);
-		*sensor_id = *sensor_id+data_mid[0];
-	    	
+			write_cmos_sensor(0x602C,0x4000);
+			write_cmos_sensor(0x602E,0x0000);
+			*sensor_id = read_cmos_sensor(0x6F12);
+			//*sensor_id = imgsensor_info.sensor_id;
+			printk("YC get_imgsensor_id 1 get id =0x%x\n",*sensor_id); 
+
+			
             if (*sensor_id == imgsensor_info.sensor_id) {               
-                LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n", imgsensor.i2c_write_id,*sensor_id);      
+                printk("YC i2c write id: 0x%x, sensor id: 0x%x\n", imgsensor.i2c_write_id,*sensor_id); 
+			//	read_s5k3m2_eeprom_mtk_fmt();//yixuhong 20150807 add,read otp data when get right sensor id
                 return ERROR_NONE;
             }   
-            LOG_INF("Read sensor id fail, write id: 0x%x, sensor id = 0x%x\n", imgsensor.i2c_write_id,*sensor_id);
+            printk("YC Read sensor id fail, write id: 0x%x, sensor id = 0x%x\n", imgsensor.i2c_write_id,*sensor_id);
             retry--;
         } while(retry > 0);
         i++;
         retry = 1;
     }
-    if (*sensor_id != imgsensor_info.sensor_id) {
+
+	//printk("YC get_imgsensor_id 1 get id =0x%x\n",sensor_id); 
+
+	if (*sensor_id != imgsensor_info.sensor_id) {
         // if Sensor ID is not correct, Must set *sensor_id to 0xFFFFFFFF 
         *sensor_id = 0xFFFFFFFF;
         return ERROR_SENSOR_CONNECT_FAIL;
     }
-
-    read_3m2_eeprom(0, data, 1);
-    
     return ERROR_NONE;
 }
 
@@ -2959,35 +2865,24 @@ static kal_uint32 open(void)
 	kal_uint8 i = 0;
 	kal_uint8 retry = 2;
 	kal_uint16 sensor_id = 0; 
-	char data_mid[1] = {0};
 	LOG_1;
 	LOG_2;
+	printk("YC open 1 ######################################## \n"); 
 	//sensor have two i2c address 0x5a 0x5b & 0x21 0x20, we should detect the module used i2c address
 	    while (imgsensor_info.i2c_addr_table[i] != 0xff) {
         spin_lock(&imgsensor_drv_lock);
         imgsensor.i2c_write_id = imgsensor_info.i2c_addr_table[i];
         spin_unlock(&imgsensor_drv_lock);
         do {
-		//read MID
-		
-		data_mid[0] = Read_MID_form_eeprom();
-		LOG_INF("[wuyt3]MID data_mid[0]=%x\n", data_mid[0]);
-		
-		//read SID
-		write_cmos_sensor(0x602C,0x4000);
-		write_cmos_sensor(0x602E,0x0000);
-		sensor_id = read_cmos_sensor(0x6F12);
-		//final
-		
-		 LOG_INF("[wuyt3]sensor id = 0x%x,data_mid[0]=0x%x, imgsensor_info.sensor_id=0x%x\n",sensor_id,data_mid[0], imgsensor_info.sensor_id);
-		sensor_id = sensor_id+data_mid[0];
-	    	
-		
+			write_cmos_sensor(0x602C,0x4000);
+			write_cmos_sensor(0x602E,0x0000);
+            sensor_id =  read_cmos_sensor(0x6F12);
+			//sensor_id = imgsensor_info.sensor_id;
             if (sensor_id == imgsensor_info.sensor_id) {                
-                LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n", imgsensor.i2c_write_id,sensor_id);   
+                printk("YC i2c write id: 0x%x, sensor id: 0x%x\n", imgsensor.i2c_write_id,sensor_id);   
                 break;
             }   
-            LOG_INF("Read sensor id fail, id: 0x%x\n", sensor_id);
+            printk("YC Read sensor id fail, id: 0x%x\n", imgsensor.i2c_write_id,sensor_id);
             retry--;
         } while(retry > 0);
         i++;
@@ -3067,6 +2962,8 @@ static kal_uint32 preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 					  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
 	LOG_INF("E\n");
+	printk("YC preview 1 ######################################## \n"); 
+
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_PREVIEW;
@@ -3078,7 +2975,7 @@ static kal_uint32 preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 	preview_setting();
-	set_mirror_flip(IMAGE_NORMAL);
+	set_mirror_flip(IMAGE_HV_MIRROR);
 	return ERROR_NONE;
 }	/*	preview   */
 
@@ -3115,7 +3012,7 @@ static kal_uint32 capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	else //PIP capture: 24fps for less than 13M, 20fps for 16M,15fps for 20M
     {
 		if (imgsensor.current_fps != imgsensor_info.cap1.max_framerate)
-			LOG_INF("Warning: current_fps %d fps is not support, so use cap1's setting: %d fps!\n",imgsensor.current_fps,imgsensor_info.cap1.max_framerate/10);   
+			LOG_INF("Warning: current_fps %d fps is not support, so use cap1's setting: %d fps!\n",imgsensor_info.cap1.max_framerate/10);   
 		imgsensor.pclk = imgsensor_info.cap1.pclk;
 		imgsensor.line_length = imgsensor_info.cap1.linelength;
 		imgsensor.frame_length = imgsensor_info.cap1.framelength;  
@@ -3126,7 +3023,7 @@ static kal_uint32 capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	spin_unlock(&imgsensor_drv_lock);
 	LOG_INF("Caputre fps:%d\n",imgsensor.current_fps);
 	capture_setting(imgsensor.current_fps); 
-    set_mirror_flip(IMAGE_NORMAL);
+    set_mirror_flip(IMAGE_HV_MIRROR);
 	return ERROR_NONE;
 }	/* capture() */
 static kal_uint32 normal_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -3144,7 +3041,7 @@ static kal_uint32 normal_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 	normal_video_setting(imgsensor.current_fps);
-	set_mirror_flip(IMAGE_NORMAL);	
+	set_mirror_flip(IMAGE_HV_MIRROR);	
 	return ERROR_NONE;
 }	/*	normal_video   */
 
@@ -3165,7 +3062,7 @@ static kal_uint32 hs_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 	hs_video_setting();
-	set_mirror_flip(IMAGE_NORMAL);
+	set_mirror_flip(IMAGE_HV_MIRROR);
 	return ERROR_NONE;
 }	/*	hs_video   */
 
@@ -3186,7 +3083,7 @@ static kal_uint32 slim_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
 	slim_video_setting();
-	set_mirror_flip(IMAGE_NORMAL);
+	set_mirror_flip(IMAGE_HV_MIRROR);
 	return ERROR_NONE;
 }
 
@@ -3756,22 +3653,14 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT16 *feature_data_16=(UINT16 *) feature_para;
 	UINT32 *feature_return_para_32=(UINT32 *) feature_para;
 	UINT32 *feature_data_32=(UINT32 *) feature_para;
-
     SET_PD_BLOCK_INFO_T *PDAFinfo;	
 	
 	SENSOR_WINSIZE_INFO_STRUCT *wininfo;	
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data=(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
     unsigned long long *feature_data=(unsigned long long *) feature_para;
-    //unsigned long long *feature_return_para=(unsigned long long *) feature_para;	
-#ifdef LONG_SHUTTER_FEATURE	
-  	/*lenovo-sw sunliang modify for long_shutter 2015_4_25 begin*/
-	unsigned long long *pLockAePara=(unsigned long long *) feature_para;
-	UINT32  mLShutter,mLGain;
-	mLGain=*pLockAePara++;
-	mLShutter=*pLockAePara;
-	/*lenovo-sw sunliang modify for long_shutter 2015_4_25 begin*/
-#endif	
-	LOG_INF("feature_id = %d", feature_id);
+    unsigned long long *feature_return_para=(unsigned long long *) feature_para;	
+ 
+	LOG_INF("YC S5k3m2 feature_id = %d", feature_id);
 	switch (feature_id) {
 		case SENSOR_FEATURE_GET_PERIOD:
 			*feature_return_para_16++ = imgsensor.line_length;
@@ -3783,45 +3672,14 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			*feature_return_para_32 = imgsensor.pclk;
 			*feature_para_len=4;
 			break;		   
-		/*lenovo-sw sunliang modify for long_shutter 2015_4_25 begin*/
+		case SENSOR_FEATURE_SET_ESHUTTER:
+			write_shutter(*feature_data);
+			break;
 		case SENSOR_FEATURE_SET_NIGHTMODE:
 			break;
-		case SENSOR_FEATURE_SET_ESHUTTER:
-#ifdef LONG_SHUTTER_FEATURE
-			if(lock_flag==KAL_FALSE){
-				preview_shutter=*feature_data;
-				write_shutter(*feature_data);
-			}
-#else
-			write_shutter(*feature_data);
-#endif
-			break;
-		
-		case SENSOR_FEATURE_SET_GAIN:
-#ifdef LONG_SHUTTER_FEATURE	
-			if(lock_flag==KAL_FALSE){
-				preview_gain=*feature_data;
-				set_gain((UINT16) *feature_data);
-			}
-#else
+		case SENSOR_FEATURE_SET_GAIN:		
 			set_gain((UINT16) *feature_data);
-#endif
 			break;
-		#ifdef LONG_SHUTTER_FEATURE
-		case SENSOR_FEATURE_LOCK_AE:
-			lock_flag=KAL_TRUE;
-			//LOG_INF("LShutter LockAe  Gain=%d Shutter=%d",mLGain,mLShutter);
-			set_gain(mLGain);
-			write_shutter(mLShutter);
-			break;
-		case SENSOR_FEATURE_UNLOCK_AE:
-			lock_flag=KAL_FALSE;
-			//LOG_INF("LShutter unlock_ae\n");
-			write_shutter(preview_shutter);
-			set_gain(preview_gain);
-			break;
-#endif
-		/*lenovo-sw sunliang modify for long_shutter 2015_4_25 end*/	
 		case SENSOR_FEATURE_SET_FLASHLIGHT:
 			break;
 		case SENSOR_FEATURE_SET_ISP_MASTER_CLOCK_FREQ:
@@ -3868,7 +3726,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			*feature_para_len=4;							 
 			break;				
 		case SENSOR_FEATURE_SET_FRAMERATE:
-			LOG_INF("current fps :%d\n", (int)*feature_data);
+			LOG_INF("current fps :%d\n", *feature_data);
 			spin_lock(&imgsensor_drv_lock);
 			imgsensor.current_fps = *feature_data;
 			spin_unlock(&imgsensor_drv_lock);	
@@ -3882,7 +3740,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			spin_unlock(&imgsensor_drv_lock);
 			break;
 		case SENSOR_FEATURE_GET_CROP_INFO:
-			LOG_INF("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n", (int)*feature_data);
+			LOG_INF("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n", *feature_data);
 			wininfo = (SENSOR_WINSIZE_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
 		
 			switch (*feature_data_32) {
@@ -3905,14 +3763,14 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			}
 			break;
 		case SENSOR_FEATURE_GET_PDAF_INFO:
-			LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n", (int)*feature_data);
+			LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n", *feature_data);
 			PDAFinfo= (SET_PD_BLOCK_INFO_T *)(uintptr_t)(*(feature_data+1));
 		
 			switch (*feature_data) {
 				case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+				case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 					memcpy((void *)PDAFinfo,(void *)&imgsensor_pd_info,sizeof(SET_PD_BLOCK_INFO_T));
 					break;
-				case MSDK_SCENARIO_ID_VIDEO_PREVIEW://lenovo.sw wangsx3 video mode,won't enable PDAF
 				case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 				case MSDK_SCENARIO_ID_SLIM_VIDEO:
 				case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
@@ -3921,15 +3779,14 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			}
 			break;
 		case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
-			LOG_INF("SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY scenarioId:%d\n", (int)*feature_data);
+			LOG_INF("SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY scenarioId:%d\n", *feature_data);
 			//PDAF capacity enable or not, 2p8 only full size support PDAF
-
 			switch (*feature_data) {
 				case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 					*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
 					break;
-				case MSDK_SCENARIO_ID_VIDEO_PREVIEW://lenovo.sw wangsx3 video mode,won't enable PDAF
-					*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0; // video & capture use same setting
+				case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+					*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1; // video & capture use same setting
 					break;
 				case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 					*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;

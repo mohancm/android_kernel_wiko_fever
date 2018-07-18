@@ -283,8 +283,13 @@ int hw_charging_get_charger_type(void)
 	if (1 == hw_bc11_DCD()) {
 		/********* Step A1 ***************/
 		if (1 == hw_bc11_stepA1()) {
+			#if defined(CONFIG_TINNO_QUICK_CHARGING)
+		 	CHR_Type_num = TINNO_1_5A_CHARGER;
+			battery_log(BAT_LOG_CRTI, "step A1 : tinno special CHARGER!\r\n");
+		 #else
 			CHR_Type_num = APPLE_2_1A_CHARGER;
 			battery_log(BAT_LOG_CRTI, "step A1 : Apple 2.1A CHARGER!\r\n");
+		#endif
 		} else {
 			CHR_Type_num = NONSTANDARD_CHARGER;
 			battery_log(BAT_LOG_CRTI, "step A1 : Non STANDARD CHARGER!\r\n");

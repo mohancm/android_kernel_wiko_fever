@@ -54,13 +54,6 @@
 
 #endif
 
-/* Begin lenovo sw linyf add for SWTP func, 2016-02-01, KOLEOSM-4 */
-#define FEATURE_MTK_SWITCH_TX_POWER
-#ifdef FEATURE_MTK_SWITCH_TX_POWER
-#define SWTP_COMPATIBLE_DEVICE_ID "mediatek, swtp-eint"
-#endif
-/* End KOLEOSM-4 */
-
 #define CCCI_SMEM_DUMP_SIZE			4096/* smem size we dump when EE */
 #define CCCI_SMEM_SIZE_EXCEPTION	0x10000/* exception smem total size */
 #define CCCI_SMEM_SIZE_RUNTIME_AP	0x800/* AP runtime data size */

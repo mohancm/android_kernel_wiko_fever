@@ -59,9 +59,11 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_UID_CPUTIME) += uid_cputime.o
 obj-$(CONFIG_MEDIATEK_SOLUTION)	+= mediatek/
-#Lenovo-sw quebs2 added 20150510 begin,support efuse check with sbc flag
-obj-$(CONFIG_EFUSE_SBC_CHECK) += efusecheck/
-#Lenovo-sw quebs2 added 20150510 end,support efuse check with sbc flag
-# lenovo-sw, chenzz3, add perftags driver, begin
-obj-$(CONFIG_LENOVO_PERFTAGS) += perftags.o
-# lenovo-sw, chenzz3, add perftags driver, end
+
+
+WIKO_UNIFY_DEF := $(strip $(subst ro.wiko.type =,,$(shell cat $(PWD)/build.ini |grep ^ro.wiko.type)))
+ifeq ($(strip $(WIKO_UNIFY_DEF)),unify)
+ccflags-y += -DCONFIG_WIKO_UNIFY
+obj-y += sensor_state.o 
+$(warning ---add marco CONFIG_WIKO_UNIFY---)
+endif

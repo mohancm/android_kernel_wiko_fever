@@ -2592,16 +2592,8 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 	prRxFrame = (P_ACTION_CHANNEL_SWITCH_FRAME) prSwRfb->pvHeader;
 	pucIE = prRxFrame->aucInfoElem;
 
-	/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-	if (!prStaRec) {
-		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-		prStaRec = prSwRfb->prStaRec;
-	}
-	if (!prStaRec)
-		return;
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
-	/*End, lenovo-sw lumy1, work-around for KE*/
 
 	DBGLOG_MEM8(RLM, INFO, pucIE, u2IELength);
 	if (prRxFrame->ucAction == ACTION_CHNL_SWITCH) {

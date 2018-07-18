@@ -188,9 +188,15 @@ static struct acc_init_info bma222_init_info = {
 #define GSE_ERR(fmt, args...)
 #define GSE_LOG(fmt, args...)
 #endif
-
+//BEGIN <> <20160309> <use the bma222 as G-sensor> panzaoyan
+#if (defined(CONFIG_PROJECT_P4605)) || (defined(CONFIG_PROJECT_P4601)) || (defined(CONFIG_PROJECT_P6601))
+struct acc_hw accel_cust_bma;
+static struct acc_hw *hw = &accel_cust_bma;
+#else
 struct acc_hw accel_cust;
 static struct acc_hw *hw = &accel_cust;
+#endif
+//END <> <20160309> <use the bma222 as G-sensor> panzaoyan
 
 
 /*----------------------------------------------------------------------------*/
@@ -1926,7 +1932,12 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	memset(obj, 0, sizeof(struct bma222_i2c_data));
 
 	obj->hw = hw;
-
+	
+	//BEGIN <> <20160309> <use the bma222 as G-sensor> panzaoyan
+	#if (defined(CONFIG_PROJECT_P4605)) || (defined(CONFIG_PROJECT_P4601)) || (defined(CONFIG_PROJECT_P6601))
+	client->addr=obj->hw->i2c_addr[0];
+    #endif
+     //END <> <20160309> <use the bma222 as G-sensor> panzaoyan
 	err = hwmsen_get_convert(obj->hw->direction, &obj->cvt);
 	if (0 != err) {
 		GSE_ERR("invalid direction: %d\n", obj->hw->direction);

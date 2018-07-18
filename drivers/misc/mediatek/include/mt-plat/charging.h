@@ -39,7 +39,8 @@
 #define CHARGING_H
 
 #ifndef CONFIG_ARCH_MT8173
-#include <mach/mt_charging.h>
+//#include <mach/mt_charging.h>
+#include "cust_charging.h"
 #endif
 
 /* ============================================================ */
@@ -122,6 +123,9 @@ typedef enum {
 	APPLE_1_0A_CHARGER,	/* 1A apple charger */
 	APPLE_0_5A_CHARGER,	/* 0.5A apple charger */
 	WIRELESS_CHARGER,
+#if defined(CONFIG_TINNO_QUICK_CHARGING)
+	TINNO_1_5A_CHARGER,
+#endif
 } CHARGER_TYPE;
 
 

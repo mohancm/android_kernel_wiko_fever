@@ -38,20 +38,6 @@ extern long DW9718AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, uns
 extern int DW9718AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 #endif
 
-/*lenovo.sw wuyt3 add for k5 camera start */
-#ifdef CONFIG_MTK_LENS_DW9761SUNNYAF_SUPPORT
-extern void DW9761SUNNYAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
-extern long DW9761SUNNYAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
-extern int DW9761SUNNYAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-#endif
-
-#ifdef CONFIG_MTK_LENS_DW9761OFILMAF_SUPPORT
-extern void DW9761OFILMAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
-extern long DW9761OFILMAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
-extern int DW9761OFILMAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-#endif
-/*lenovo.sw wuyt3 add for k5 camera end*/
-
 #ifdef CONFIG_MTK_LENS_FM50AF_SUPPORT
 extern void FM50AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
 extern long FM50AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
@@ -80,6 +66,36 @@ extern int LC898212XDAF_Release(struct inode *a_pstInode, struct file *a_pstFile
 extern void AD5820AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
 extern long AD5820AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
 extern int AD5820AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+#endif
+
+#ifdef CONFIG_MTK_LENS_OV13850AF_SUPPORT
+extern void OV13850AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long OV13850AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
+extern int OV13850AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+#endif
+
+#ifdef CONFIG_MTK_LENS_HI842AF_SUPPORT
+extern void HI842AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long HI842AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
+extern int HI842AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+#endif
+
+#ifdef CONFIG_MTK_LENS_IMX258AF_SUPPORT
+extern void IMX258AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long IMX258AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
+extern int IMX258AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+#endif
+
+#ifdef CONFIG_MTK_LENS_IMX258SUNNYAF_SUPPORT
+extern void IMX258SUNNYAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long IMX258SUNNYAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
+extern int IMX258SUNNYAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+#endif
+
+#ifdef CONFIG_MTK_LENS_S5K4H8AF_SUPPORT
+extern void S5K4H8AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long S5K4H8AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned long a_u4Param);
+extern int S5K4H8AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 #endif
 
 #endif

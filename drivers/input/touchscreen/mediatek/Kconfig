@@ -20,31 +20,48 @@ config TOUCHSCREEN_MTK
 
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
-# lenovo-sw wuwl10 20160108 add for touch
-config TOUCHSCREEN_MTK_FTS5446
-	bool "FTS5446 for lenovo K52 driver"
-	depends on TOUCHSCREEN_MTK
-	
-config TOUCHSCREEN_MTK_GT1151
-	bool "GT1151 for Mediatek package"
+config MTK_TGESTURE
+        bool "tGesture for Mediatek package"
+        default n
+
+# yixuhong add tinno touch panel start
+config MTK_FT6X06
+        bool "FT6336 for Mediatek package"
+        default n
+
+config TINNO_FT6X06
+        bool "FT6336 for Tinno package"
+        default n
+		
+config TINNO_FT5346
+        bool "FT5346 for Tinno package"
+        default n		
+
+config TOUCHSCREEN_MTK_GT615
+	bool "GT615 for Mediatek package"
 	default n
 	help
-	  Say Y here if you have GT1151 touch panel.
+	  Say Y here if you have GT615 touch panel.
 
 	  If unsure, say N.
 
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
 
-source "drivers/input/touchscreen/mediatek/GT1151/Kconfig"
+source "drivers/input/touchscreen/mediatek/gt615/Kconfig"
 
-config TOUCHSCREEN_MTK_GT928
-	tristate "GT928 Touchscreen"
+config TOUCHSCREEN_SYNAPTICS
+	bool "synaptices for Mediatek package"
+	default n
 	help
-	  Say Y here if you have Goodix GT928 touchscreen,
-	  connected to your system.
+	  Say Y here if you have synaptices touch panel.
+
 	  If unsure, say N.
-	  To compile this driver as a module, choose M here.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+# yixuhong add tinno touch panel end
 config TOUCHSCREEN_MTK_GT9XXTB_HOTKNOT
 	bool "GT9XXTB hotknot for Mediatek package"
 	default n
@@ -57,71 +74,4 @@ config TOUCHSCREEN_MTK_GT9XXTB_HOTKNOT
 	  module will be called.
 
 source "drivers/input/touchscreen/mediatek/GT9XXTB_hotknot/Kconfig"
-
-config TOUCHSCREEN_MTK_SYNAPTICS_I2C_RMI4
-	tristate "Synaptics DSX I2C touchscreen"
-	depends on I2C
-	help
-	  Say Y here if you have a Synaptics DSX I2C touchscreen
-	  connected to your system.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_i2c_rmi4.
-
-source "drivers/input/touchscreen/mediatek/synaptics_i2c_rmi4/Kconfig"
-
-config TOUCHSCREEN_MTK_GT910
-	bool "GT910 for Mediatek package"
-	default n
-	help
-	  Say Y here if you have GT910 touch panel.
-
-	  If unsure, say N.
-
-	  To compile this dirver as a module, choose M here: the
-	  module will be called.
-
-source "drivers/input/touchscreen/mediatek/GT910/Kconfig"
-
-config TOUCHSCREEN_MTK_GT9XX_HOTKNOT_SCP
-	bool "GT9XX_HOTKNOT_SCP for Mediatek package"
-	default n
-	help
-	  Say Y here if you have GT9XX_HOTKNOT_SCP touch panel.
-
-	  If unsure, say N.
-
-	  To compile this dirver as a module, choose M here: the
-	  module will be called.
-
-source "drivers/input/touchscreen/mediatek/GT9XX_hotknot_scp/Kconfig"
-
-config TOUCHSCREEN_MTK_GT911
-	bool "GT911 for Mediatek package"
-	default n
-	help
-	  Say Y here if you have GT911 touch panel.
-
-	  If unsure, say N.
-
-	  To compile this dirver as a module, choose M here: the
-	  module will be called.
-
-source "drivers/input/touchscreen/mediatek/GT911/Kconfig"
-
-config TOUCHSCREEN_MTK_FT5X0X
-	bool "FT5X0X for Mediatek package"
-	default n
-	help
-	  Say Y here if you have FT5X0X touch panel.
-
-	  If unsure, say N.
-
-	  To compile this dirver as a module, choose M here: the
-	  module will be called.
-
-source "drivers/input/touchscreen/mediatek/ft5x0x/Kconfig"
-
 endif

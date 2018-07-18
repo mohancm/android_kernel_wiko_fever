@@ -1627,7 +1627,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 			audmiso-gpio = <144 0>;
 			audmosi-gpio = <145 0>;
 			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <117 0>;
+			//extspkamp-gpio = <117 0>;//yangliang mask for pa mode-2 d-class;0331
 			i2s1clk-gpio = <80 0>;
 			i2s1dat-gpio = <78 0>;
 			i2s1mclk-gpio = <9 0>;
@@ -1802,10 +1802,10 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 	/* NFC start */
 	nfc:nfc@0 {
 		compatible = "mediatek,nfc-gpio-v2";
-		gpio-ven = <17>;
-		gpio-rst = <143>;
-		gpio-eint = <145>;
-		gpio-irq = <144>;
+		gpio-ven = <4>;
+		gpio-rst = <3>;
+		gpio-eint = <1>;
+		gpio-irq = <2>;
 	};
 	/* NFC end */
 
@@ -1869,9 +1869,7 @@ initrd=0x44000000,0x300000 loglevel=8 androidboot.hardware=mt6735";
 		orientation@0 {
 			compatible = "mediatek,orientation";
 	};
-			strobe_main1@0{
-		compatible = "mediatek,strobe_main1";
-	};
+
 /* sensor end */
 };
 

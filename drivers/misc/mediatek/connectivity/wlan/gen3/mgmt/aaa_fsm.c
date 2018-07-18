@@ -532,12 +532,6 @@ WLAN_STATUS aaaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 
 		/* 4 <1> Check if we have the STA_RECORD_T for incoming Assoc Req */
 		prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-		/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-		if (!prStaRec) {
-			nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-			prStaRec = prSwRfb->prStaRec;
-		}
-		/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
 
 		/* We should have the corresponding Sta Record. */
 		if ((!prStaRec) || (!prStaRec->fgIsInUse)) {

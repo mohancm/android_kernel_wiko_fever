@@ -36,9 +36,7 @@
 #define POWER_BAT_OC_CURRENT_L_RE 4000
 #endif
 
-//lenovo-sw mahj2 modify for disable DLPT power off Begin
-//#define DLPT_POWER_OFF_EN
-//lenovo-sw mahj2 modify for disable DLPT power off End
+#define DLPT_POWER_OFF_EN
 #define POWEROFF_BAT_CURRENT 3000
 #define DLPT_POWER_OFF_THD 100
 

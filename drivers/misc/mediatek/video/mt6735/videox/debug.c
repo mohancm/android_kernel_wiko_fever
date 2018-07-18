@@ -73,12 +73,7 @@ struct MTKFB_MMP_Events_t MTKFB_MMP_Events;
 /* extern unsigned int gCaptureLayerEnable; */
 /* extern unsigned int gCaptureLayerDownX; */
 /* extern unsigned int gCaptureLayerDownY; */
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-extern int primary_display_setcabc(unsigned int mode);
-extern int primary_display_setinverse(unsigned int mode);
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
+
 extern unsigned int dvfs_test;
 extern int primary_display_switch_mmsys_clk(int mmsys_clk_old, int mmsys_clk_new);
 
@@ -646,38 +641,7 @@ static void process_dbg_opt(const char *opt)
 	} else if (0 == strncmp(opt, "suspend", 4)) {
 		primary_display_suspend();
 		return;
-		}
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-    else if (0 == strncmp(opt, "cabc:", 5))
-    {
-        if (0 == strncmp(opt + 5, "ui", 2)) {
-		primary_display_setcabc(1);
-        }else if (0 == strncmp(opt + 5, "mov", 3)) {
-		primary_display_setcabc(3);
-        }else if (0 == strncmp(opt + 5, "still", 5)) {
-		primary_display_setcabc(2);
-        }else if (0 == strncmp(opt + 5, "off", 3)) {
-		primary_display_setcabc(0);
-        }else {
-            return;
-        }
-    }
-    else if (0 == strncmp(opt, "inverse:", 8))
-    {
-	printk("[JX]inverse\n");
-        if (0 == strncmp(opt + 8, "on", 2)) {
-		primary_display_setinverse(1);
-        }else if (0 == strncmp(opt + 8, "off", 3)) {
-		primary_display_setinverse(0);
-        }else {
-	printk("[JX] not compare inverse\n");
-            return;
-        }
-    }
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
-	 else if (0 == strncmp(opt, "ata", 3)) {
+	} else if (0 == strncmp(opt, "ata", 3)) {
 		mtkfb_fm_auto_test();
 		return;
 	} else if (0 == strncmp(opt, "resume", 4)) {
@@ -936,24 +900,6 @@ static void process_dbg_opt(const char *opt)
 		pr_debug("process_dbg_opt(), set backlight level = %ld\n", level);
 		primary_display_setbacklight(level);
 	}
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifndef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-    else if (0 == strncmp(opt, "cabc:", 5))
-    {
-        if (0 == strncmp(opt + 5, "ui", 2)) {
-			mtkfb_set_backlight_mode(1);
-        }else if (0 == strncmp(opt + 5, "mov", 3)) {
-			mtkfb_set_backlight_mode(3);
-        }else if (0 == strncmp(opt + 5, "still", 5)) {
-			mtkfb_set_backlight_mode(2);
-        }else {
-            goto Error;
-        }
-    }
-Error:
-    pr_err("DISP/ERROR " "parse command error!\n\n");
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
 }
 
 

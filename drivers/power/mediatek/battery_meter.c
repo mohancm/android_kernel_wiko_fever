@@ -34,18 +34,20 @@
 #include <mt-plat/battery_meter.h>
 #include <mt-plat/battery_common.h>
 #include <mt-plat/battery_meter_hal.h>
-#include <mach/mt_battery_meter.h>
-#include <mach/mt_battery_meter_table.h>
+//#include <mach/mt_battery_meter.h>
+#include "cust_battery_meter.h"
+
+//#include <mach/mt_battery_meter_table.h>
+#include "cust_battery_meter_table.h"
+
 #include <mach/mt_pmic.h>
 
 
 #include <mt-plat/upmu_common.h>
 
-//add by willcai 2014-5-29 for charing begin
-#ifdef CONFIG_LENOVO_CHARGING_STANDARD_SUPPORT
-#include "lenovo_charging.h"
+#ifdef TINNO_GET_OCV_FORM_LK
+int tinno_get_bat_ocv(void);
 #endif
-//end 
 
 /* ============================================================ // */
 /* define */
@@ -76,6 +78,10 @@ signed int g_booting_vbat = 0;
 #if !defined(CONFIG_POWER_EXT)
 static unsigned int temperature_change = 1;
 #endif
+s32 g_reflash_timer = 150;	//LINE <><optimize the soft fule-gauge><20160429> panzaoyan
+s32 g_sleep_oam_time = 0;
+s32 oam_delta_time = 0;
+s32 sleep_reflash_oam = 0;	//LINE <><optimize the soft fule-gauge><20160429> panzaoyan
 
 #if defined(CUST_CAPACITY_OCV2CV_TRANSFORM)
 static signed int g_currentfactor = 100;
@@ -938,39 +944,38 @@ signed int fgauge_get_Q_max_high_current(signed short temperature)
 }
 
 #else
-
 int BattThermistorConverTemp(int Res)
 {
 	int i = 0;
 	int RES1 = 0, RES2 = 0;
 	int TBatt_Value = -200, TMP1 = 0, TMP2 = 0;
-
-//modify by mahj2 2014-10-22 for charing begin 
-#ifdef CONFIG_LENOVO_CHARGING_STANDARD_SUPPORT
-	if(Res <= 0)	
-	{	
-		TBatt_Value = -20;	
-		return TBatt_Value; 	
-	}	
-#endif
-//modify end
-	if (Res >= Batt_Temperature_Table[0].TemperatureR) {
-		TBatt_Value = -20;
-	} else if (Res <= Batt_Temperature_Table[16].TemperatureR) {
-		TBatt_Value = 60;
-	} else {
+	int table_size=0;
+	table_size=sizeof(Batt_Temperature_Table)/sizeof(BATT_TEMPERATURE);
+	if(Res>=Batt_Temperature_Table[0].TemperatureR)
+	{
+		TBatt_Value = Batt_Temperature_Table[0].BatteryTemp;
+	}
+	else if(Res<=Batt_Temperature_Table[table_size-1].TemperatureR)
+	{
+		TBatt_Value = Batt_Temperature_Table[table_size-1].BatteryTemp;;
+	}
+	else
+	{
 		RES1 = Batt_Temperature_Table[0].TemperatureR;
 		TMP1 = Batt_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 16; i++) {
-			if (Res <  Batt_Temperature_Table[i].TemperatureR) {
-				RES1 = Batt_Temperature_Table[i].TemperatureR;
-				TMP1 = Batt_Temperature_Table[i].BatteryTemp;
-
-			} else {
+		for(i=0;i<table_size;i++)
+		{
+			if(Res>=Batt_Temperature_Table[i].TemperatureR)
+			{
 				RES2 = Batt_Temperature_Table[i].TemperatureR;
 				TMP2 = Batt_Temperature_Table[i].BatteryTemp;
 				break;
+			}
+			else
+			{
+				RES1 = Batt_Temperature_Table[i].TemperatureR;
+				TMP1 = Batt_Temperature_Table[i].BatteryTemp;
 			}
 		}
 
@@ -1071,25 +1076,6 @@ signed int fgauge_get_Q_max_high_current(signed short temperature)
 
 #endif
 
-/*lenovo-sw liuyc7  add for meta getbattvolt begin*/
-int BattVoltToTemp_meta(int dwVolt)
-{
-	long long TRes_temp;
-	long long TRes;
-	int sBaTTMP = -100;
-
-	/* TRes_temp = ((long long)RBAT_PULL_UP_R*(long long)dwVolt) / (RBAT_PULL_UP_VOLT-dwVolt); */
-	/* TRes = (TRes_temp * (long long)RBAT_PULL_DOWN_R)/((long long)RBAT_PULL_DOWN_R - TRes_temp); */
-	TRes_temp = (RBAT_PULL_UP_R * (long long) dwVolt);
-	do_div(TRes_temp, (RBAT_PULL_UP_VOLT - dwVolt));
-	printk("battvolttotemp TRes_temp=%lld\n",TRes_temp);
-	TRes = TRes_temp;
-	/* convert register to temperature */
-	sBaTTMP = BattThermistorConverTemp((int)TRes);
-
-	return sBaTTMP;
-}
-/*lenovo-sw liuyc7 add end*/
 int BattVoltToTemp(int dwVolt)
 {
 	long long TRes_temp;
@@ -1176,14 +1162,6 @@ int force_get_tbat(kal_bool update)
 	} else {
 		bat_temperature_val = pre_bat_temperature_val;
 	}
-/*lenovo-sw mahj2 added for ntc temp cut 1 degree Begin*/
-#ifdef LENOVO_NTC_TEMP_CUT_2_DEGREE
-	if(bat_temperature_val < 60)
-	{
-		 bat_temperature_val = bat_temperature_val-1;
-	}
-#endif
-/*lenovo-sw mahj2 added for ntc temp cut 1 degree End*/
 	return bat_temperature_val;
 #endif
 }
@@ -1916,11 +1894,7 @@ void fg_qmax_update_for_aging(void)
 					 "[fg_qmax_update_for_aging] error, restore gFG_BATT_CAPACITY_aging (%d)\n",
 					 gFG_BATT_CAPACITY_aging);
 			}
-//modify by willcai 2014-5-29 begin
-           #ifdef CONFIG_LENOVO_CHARGING_STANDARD_SUPPORT		   
-           lenovo_battery_set_Qmax_cali_status(2);
-           #endif
-//end
+
 			bm_print(BM_LOG_CRTI,
 				 "[fg_qmax_update_for_aging] need update : gFG_columb=%d, gFG_DOD0=%d, new_qmax=%d\r\n",
 				 gFG_columb, gFG_DOD0, gFG_BATT_CAPACITY_aging);
@@ -2009,6 +1983,106 @@ void sw_oam_init_v2(void)
 }
 #endif
 
+#ifdef TINNO_GET_OCV_FORM_LK
+#define BAT_VOL_STR  "tinno_vbat="
+extern char *saved_command_line;
+#define LK_CURRENT 90
+static int str_to_int(char *str)
+{
+	int count=0;
+	int value=0;
+	int t_index=0;
+	for(count=0;count<15;count++)
+	{
+		if((str[count]>='0')&&(str[count]<='9'))
+		{
+			continue;
+		}
+		break;
+	}
+
+	for(;count>0;count--)
+	{
+	
+		if(count>1)
+		{
+			value=value*10+(str[t_index]-'0')*10;
+		}else{
+			value=value+(str[t_index]-'0');
+		}
+		t_index++;
+	}
+	return value;
+}
+
+int  get_battery_voltage_in_cmdline(char * start)
+{
+	char buf[15];
+	unsigned int temp_voltage=0,i;
+	memset(buf,0,15);
+	for(i=0;i<15;i++)
+	{
+		if(start[i]=='m')
+		{
+			break;
+		}
+		buf[i]=start[i];
+	}
+	temp_voltage=str_to_int(buf);
+	return temp_voltage;
+}
+
+int track_bat_voltage(int voltage,int current_temp)
+{
+	int rbat=0;
+	int ocv_vbat=0;
+	int delta_v=0;
+	rbat = fgauge_read_r_bat_by_v(voltage);	/* Ohm */
+	delta_v = (current_temp * (rbat + R_FG_VALUE)) / 1000;
+	ocv_vbat = voltage+delta_v;
+	printk("track_bat_voltage rbat=%d \n",rbat);
+	return ocv_vbat;
+}
+int tinno_get_bat_ocv(void)
+{
+	int aboot_batvol=0;
+	int hw_ocv=1;
+	char * start;
+	battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_OCV, &hw_ocv);
+	start=strstr(saved_command_line,BAT_VOL_STR);
+	    if(start)
+	    {
+		  aboot_batvol=get_battery_voltage_in_cmdline(start+strlen(BAT_VOL_STR));
+	    }else{
+		   aboot_batvol=-1;
+		}
+		
+	 if(aboot_batvol>200000) //charging boot mode!
+	{
+		aboot_batvol=aboot_batvol/100;
+		aboot_batvol=track_bat_voltage(aboot_batvol,-360);
+	}else if(aboot_batvol>20000) //charging boot mode!,but has disconnected the chg! 
+		{
+			aboot_batvol=aboot_batvol/10;
+			aboot_batvol=track_bat_voltage(aboot_batvol,LK_CURRENT);
+		}else{ //no charger ,use hw ocv!
+			aboot_batvol=track_bat_voltage(aboot_batvol,LK_CURRENT);
+			/*
+			if((aboot_batvol>hw_ocv+15)||(hw_ocv>aboot_batvol+15))
+			{
+				printk("hw ocv is error ,use aboot_batvol!");
+			}else{
+				aboot_batvol=hw_ocv;
+				printk("no chg,use ocv voltage!");
+				}
+*/
+				printk("keep use lk ocv voltage!");			
+		}
+		printk("aboot_batvol=%d hw_ocv=%d \n",aboot_batvol,hw_ocv);
+		return aboot_batvol;
+}
+#endif
+
 void dod_init(void)
 {
 #if defined(SOC_BY_HW_FG)
@@ -2018,31 +2092,12 @@ void dod_init(void)
 	signed int gFG_capacity_by_sw_ocv = gFG_capacity_by_v;
 #endif				/* #if defined(IS_BATTERY_REMOVE_BY_PMIC) */
 
-/*lenovo-sw mahj2 optim  code for dod_init  begin 2015-05-27 */ 
-	if (bat_is_charger_exist() == KAL_TRUE)
-	{
-	      	kal_bool charging_enable = KAL_FALSE;
-		/*stop charging for vbat measurement*/
-	     	battery_charging_control(CHARGING_CMD_ENABLE,&charging_enable);	
-	    	msleep(50);
-	       /* use vbat instead of hw_ocv */
-		gFG_voltage = 5;   
-	        ret=battery_meter_ctrl(BATTERY_METER_CMD_GET_ADC_V_BAT_SENSE, &gFG_voltage);
-	        charging_enable = KAL_TRUE;
-	        battery_charging_control(CHARGING_CMD_ENABLE,&charging_enable);	
-	}  else {
-	
 	/* use get_hw_ocv----------------------------------------------------------------- */
 	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_OCV, &gFG_voltage);
-	}
-	
 	gFG_capacity_by_v = fgauge_read_capacity_by_v(gFG_voltage);
 
 	bm_print(BM_LOG_CRTI, "[FGADC] get_hw_ocv=%d, HW_SOC=%d, SW_SOC = %d\n",
 		 gFG_voltage, gFG_capacity_by_v, gFG_capacity_by_v_init);
-
-#if 1
-#else
 #if defined(EXTERNAL_SWCHR_SUPPORT)
 	/* compare with hw_ocv & sw_ocv, check if less than or equal to 5% tolerance */
 	if ((abs(gFG_capacity_by_v_init - gFG_capacity_by_v) > 5)
@@ -2057,8 +2112,7 @@ void dod_init(void)
 #endif
 	/* ------------------------------------------------------------------------------- */
 #endif
-#endif
- /*lenovo-sw mahj2 optim  code for dod init  end 2015-05-27 */ 
+
 #if defined(CONFIG_POWER_EXT)
 	g_rtc_fg_soc = gFG_capacity_by_v;
 #else
@@ -2120,19 +2174,16 @@ if (((g_rtc_fg_soc != 0)
 
 #if defined(SOC_BY_HW_FG)
 #if defined(INIT_SOC_BY_SW_SOC)
-	/*lenovo-sw zhangrc2 optim charge code  begin 2014-08-19 */
-     if(((g_rtc_fg_soc != 0) && (g_rtc_fg_soc != 1) && ( ( (abs(g_rtc_fg_soc-gFG_capacity_by_v) ) < batt_meter_cust_data.cust_poweron_delta_capacity_tolrance) ) &&(( gFG_capacity_by_v > batt_meter_cust_data.cust_poweron_low_capacity_tolrance || bat_is_charger_exist() == KAL_TRUE)))
-		|| ((g_rtc_fg_soc != 0) &&(get_boot_reason() == BR_WDT_BY_PASS_PWK || get_boot_reason() == BR_WDT || get_boot_reason() == BR_TOOL_BY_PASS_PWK || get_boot_reason() == BR_2SEC_REBOOT || get_boot_mode() == RECOVERY_BOOT)))
-	/*if (((g_rtc_fg_soc != 0)
-	     && (((abs(g_rtc_fg_soc - gFG_capacity_by_v)) <= CUST_POWERON_DELTA_CAPACITY_TOLRANCE)
-	    || (abs(gFG_capacity_by_v_init - g_rtc_fg_soc) < abs(gFG_capacity_by_v - gFG_capacity_by_v_init))))
+if (((g_rtc_fg_soc != 0)
+	     &&
+	     (((abs(g_rtc_fg_soc - gFG_capacity_by_v)) <=
+	       batt_meter_cust_data.cust_poweron_delta_capacity_tolrance)
+	      || (abs(gFG_capacity_by_v_init - g_rtc_fg_soc) <
+		  abs(gFG_capacity_by_v - gFG_capacity_by_v_init))))
 	    || ((g_rtc_fg_soc != 0)
-		&& (g_boot_reason == BR_WDT_BY_PASS_PWK || g_boot_reason == BR_WDT
-		    || g_boot_reason == BR_TOOL_BY_PASS_PWK || g_boot_reason == BR_2SEC_REBOOT
-		    || g_boot_mode == RECOVERY_BOOT)))
-	*/
-	/*lenovo-sw zhangrc2 optim charge code  end 2014-08-19 */
-
+		&& (get_boot_reason() == BR_WDT_BY_PASS_PWK || get_boot_reason() == BR_WDT
+		    || get_boot_reason() == BR_TOOL_BY_PASS_PWK || get_boot_reason() == BR_2SEC_REBOOT
+		    || get_boot_mode() == RECOVERY_BOOT)))
 #else
 if (((g_rtc_fg_soc != 0)
 	     &&
@@ -2170,6 +2221,47 @@ if (((g_rtc_fg_soc != 0)
 
 #if defined(SW_OAM_INIT_V2)
 	sw_oam_init_v2();
+#endif
+#ifdef TINNO_GET_OCV_FORM_LK
+#ifndef IS_BATTERY_REMOVE_BY_PMIC
+	kal_int32 gFG_capacity_by_sw_ocv;	
+#endif 
+	gFG_voltage = tinno_get_bat_ocv();
+	gFG_capacity_by_sw_ocv= fgauge_read_capacity_by_v(gFG_voltage);
+	g_rtc_fg_soc = get_rtc_spare_fg_value();
+	
+	if((g_rtc_fg_soc<=0)||(g_rtc_fg_soc>100)) //rtc soc is invalid, set sw soc to rtc soc. 
+	{
+		g_rtc_fg_soc=gFG_capacity_by_sw_ocv;
+	}
+	
+	if(gFG_capacity_by_sw_ocv<5) //sw soc <5,force use sw soc!!!
+	{
+		gFG_capacity_by_v=gFG_capacity_by_sw_ocv;
+	}else{
+	 //delta soc >25 jump to sw soc!
+		 if((gFG_capacity_by_sw_ocv>g_rtc_fg_soc+25)||(g_rtc_fg_soc>gFG_capacity_by_sw_ocv+25))
+		 {
+				gFG_capacity_by_v=gFG_capacity_by_sw_ocv;
+		 }else{
+		 //delta soc >15  reduce or not change.
+		 		 if((gFG_capacity_by_sw_ocv>g_rtc_fg_soc+15)||(g_rtc_fg_soc>gFG_capacity_by_sw_ocv+15))
+		 		 {
+		 		  //rtc soc >sw soc	  reduce soc .
+		 		 	if(g_rtc_fg_soc>gFG_capacity_by_sw_ocv)
+		 		 	{
+						gFG_capacity_by_v=g_rtc_fg_soc-2;
+		 		 	}else{ //sw soc >rtc soc ,keep rtc soc.
+						gFG_capacity_by_v=g_rtc_fg_soc;
+					}
+				 }else{ //delta soc <10,use rtc soc!
+					gFG_capacity_by_v=g_rtc_fg_soc;
+				 }
+				
+			}
+	}
+
+	printk("g_rtc_fg_soc=%d, gFG_capacity_by_v=%d",g_rtc_fg_soc,gFG_capacity_by_v);
 #endif
 
 	bm_print(BM_LOG_CRTI, "[FGADC] g_rtc_fg_soc=%d, gFG_capacity_by_v=%d\n",
@@ -2239,11 +2331,7 @@ signed int mtk_imp_tracking(signed int ori_voltage, signed int ori_current, sign
 
 	return ret_compensate_value;
 }
-//modify by willcai 2014-5-29 begin
-#ifdef CONFIG_LENOVO_CHARGING_STANDARD_SUPPORT
-extern kal_bool upmu_is_chr_det(void);
-#endif
-//modify end
+
 void oam_init(void)
 {
 	int ret = 0;
@@ -2280,17 +2368,6 @@ void oam_init(void)
 			gFG_voltage = g_booting_vbat;
 			gFG_capacity_by_v = vbat_capacity;
 		}
-//modify by willcai 2014-5-29 begin
-#ifdef CONFIG_LENOVO_CHARGING_STANDARD_SUPPORT
-		else if(upmu_is_chr_det()==KAL_TRUE)
-		{
-			bm_print(BM_LOG_CRTI, "[oam_init] chr is true. fg_vbat=(%d), vbat=(%d), set fg_vat as vat\n", gFG_voltage,g_booting_vbat);
-	
-			gFG_voltage = g_booting_vbat;
-			gFG_capacity_by_v = vbat_capacity;
-		}   
-#endif	
-//modify end
 	}
 
 	gFG_capacity_by_v_init = gFG_capacity_by_v;
@@ -2443,13 +2520,27 @@ void oam_run(void)
 	d5_count = d5_count + delta_time;
 	if (d5_count >= d5_count_time) {
 		if (gFG_Is_Charging == KAL_FALSE) {
-			if (oam_d_3 > oam_d_5)
-				oam_d_5 = oam_d_5 + 1;
-			else
-				if (oam_d_4 > oam_d_5)
-					oam_d_5 = oam_d_5 + 1;
-
-
+			if (oam_d_3 > oam_d_5) {
+              if(!bat_spm_timeout)
+                oam_d_5 = oam_d_5 + 1;
+              else {
+                if(oam_d_3 - oam_d_5 <= 4)
+                    oam_d_5 = oam_d_5 + 1;
+                else
+                    oam_d_5 = oam_d_3;
+              }
+			} else {
+				if (oam_d_4 > oam_d_5) {
+				  if(!bat_spm_timeout)
+				    oam_d_5 = oam_d_5 + 1;
+				  else {
+				    if(oam_d_4 - oam_d_5 <= 4)
+				      oam_d_5 = oam_d_5 + 1;
+				    else
+				      oam_d_5 = oam_d_4;
+				  }
+				}
+			}
 		} else {
 			if (oam_d_5 > oam_d_3)
 				oam_d_5 = oam_d_5 - 1;
@@ -2460,6 +2551,7 @@ void oam_run(void)
 
 		}
 		d5_count = 0;
+		if(bat_spm_timeout) { if(oam_d_3 - oam_d_5 <= 3) d5_count = 50; }
 		oam_d_3_pre = oam_d_3;
 		oam_d_4_pre = oam_d_4;
 	}
@@ -3349,41 +3441,6 @@ signed int battery_meter_get_battery_voltage(kal_bool update)
 	return val;
 }
 
-/* lenovo-sw mahj2 support meter charger current use charger ic Begin*/
-#ifdef CHAGER_CURRENT_USE_SWITCHIC_METER
-extern int IMM_IsAdcInitReady(void);
-extern int IMM_GetOneChannelValue(int dwChannel, int data[4], int *rawdata);
-static int get_charger_current_adc(int Channel)
-{
-	int ret = 0, data[4], i, ret_value = 0, ret_temp = 0, times = 5;
-
-	 if( IMM_IsAdcInitReady() == 0 ) {
-		battery_xlog_printk(BAT_LOG_CRTI, "[get_charger_current_adc] AUXADC is not ready");
-		return 0;
-	}
-
-	i = times;
-	while (i--)
-	{
-		ret_value = IMM_GetOneChannelValue(Channel, data, &ret_temp);
-		if(ret_value == 0) {
-			battery_xlog_printk(BAT_LOG_CRTI, "[get_charger_current_adc] adc=%d\n", ret_temp);
-			ret += ret_temp;
-		} else {
-			times = times > 1 ? times - 1 : 1;
-			battery_xlog_printk(BAT_LOG_CRTI, "[get_charger_current_adc] ret_value=%d, times=%d\n",ret_value, times);
-		}
-	}
-
-	ret = ret*1500/4096 ;
-	ret = ret/times;
-	battery_xlog_printk(BAT_LOG_CRTI, "[get_charger_current_adc] volt=%d\n", ret);	
-
-	return ret;
-	}
-#endif
-/* lenovo-sw mahj2 support meter charger current use charger ic End*/
-
 signed int battery_meter_get_charging_current_imm(void)
 {
 #ifdef AUXADC_SUPPORT_IMM_CURRENT_MODE
@@ -3408,17 +3465,6 @@ signed int battery_meter_get_charging_current(void)
 {
 #ifdef DISABLE_CHARGING_CURRENT_MEASURE
 	return 0;
-	/* lenovo-sw mahj2 support meter charger current use charger ic Begin*/
-#elif defined (CHAGER_CURRENT_USE_SWITCHIC_METER)
-	signed int adc_current = 0;
-	signed int charger_current = 0;
-
-	adc_current = get_charger_current_adc(CHARGER_CURRENT_ADC);
-	charger_current = adc_current*CHARGER_IC_KLIM/CHARGER_IC_RLIM;
-	printk("battery_meter_get_charging_current : charger_current=%d \n",charger_current);
-
-	return charger_current;
-	/* lenovo-sw mahj2 support meter charger current use charger ic End*/
 #elif !defined(EXTERNAL_SWCHR_SUPPORT)
 	signed int ADC_BAT_SENSE_tmp[20] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	signed int ADC_BAT_SENSE_sum = 0;
@@ -4585,7 +4631,8 @@ static int battery_meter_suspend(struct platform_device *dev, pm_message_t state
 #endif
 		get_monotonic_boottime(&xts_before_sleep);
 		get_monotonic_boottime(&g_rtc_time_before_sleep);
-		if (_g_bat_sleep_total_time < g_spm_timer)
+		//if (_g_bat_sleep_total_time < g_spm_timer) 
+		if ( (_g_bat_sleep_total_time < g_spm_timer) && (oam_delta_time < g_reflash_timer) ) 
 			return 0;
 
 
@@ -4787,8 +4834,16 @@ if (suspend_time > OCV_RECOVER_TIME)
 #endif
 #endif
 
+//BEGIN <><optimize the soft fule-gauge><20160429> panzaoyan
 static int battery_meter_resume(struct platform_device *dev)
 {
+
+#if defined(SOC_BY_SW_FG)
+	int vol_bat1=0;
+	 int HW_OCV1=0;
+	 int D0=0;
+	 int ret=0;
+#endif
 #if defined(CONFIG_POWER_EXT)
 
 #elif defined(SOC_BY_SW_FG) || defined(SOC_BY_HW_FG)
@@ -4796,10 +4851,13 @@ static int battery_meter_resume(struct platform_device *dev)
 	signed int hw_ocv_after_sleep;
 #endif
 	struct timespec rtc_time_after_sleep;
+	struct timespec now_time;
 #ifdef MTK_POWER_EXT_DETECT
 	if (KAL_TRUE == bat_is_ext_power())
 		return 0;
 #endif
+	get_monotonic_boottime(&now_time);
+	oam_delta_time = now_time.tv_sec - last_oam_run_time.tv_sec;
 
 	get_monotonic_boottime(&rtc_time_after_sleep);
 
@@ -4807,13 +4865,17 @@ static int battery_meter_resume(struct platform_device *dev)
 		timespec_sub(rtc_time_after_sleep, g_rtc_time_before_sleep));
 	_g_bat_sleep_total_time = g_sleep_total_time.tv_sec;
 
+	oam_delta_time = oam_delta_time + _g_bat_sleep_total_time;
+	g_sleep_oam_time = g_sleep_oam_time + (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec);
+
 	battery_log(BAT_LOG_CRTI,
-			"[battery_meter_resume] sleep time = %d, g_spm_timer = %d , %ld %ld %ld %ld %ld %ld\n",
+			"[battery_meter_resume] sleep time = %d, g_spm_timer = %d , %ld %ld %ld %ld %ld %ld %d %d %d\n",
 			_g_bat_sleep_total_time, g_spm_timer,
 			g_rtc_time_before_sleep.tv_sec, g_rtc_time_before_sleep.tv_nsec,
 			rtc_time_after_sleep.tv_sec, rtc_time_after_sleep.tv_nsec,
-			g_sleep_total_time.tv_sec, g_sleep_total_time.tv_nsec);
+			g_sleep_total_time.tv_sec, g_sleep_total_time.tv_nsec, oam_delta_time, g_sleep_oam_time, g_reflash_timer);
 
+//END <><optimize the soft fule-gauge><20160429> panzaoyan
 #if defined(SOC_BY_HW_FG)
 #ifdef MTK_ENABLE_AGING_ALGORITHM
 	if (bat_is_charger_exist() == KAL_FALSE)
@@ -4822,12 +4884,55 @@ static int battery_meter_resume(struct platform_device *dev)
 #endif
 #endif
 
-	if (_g_bat_sleep_total_time < g_spm_timer)
+	//if (_g_bat_sleep_total_time < g_spm_timer) {
+	if ( (_g_bat_sleep_total_time < g_spm_timer) && (oam_delta_time < g_reflash_timer) ) {
 		return 0;
-
+	}
+	d5_count = 60;
 	bat_spm_timeout = true;
 #if defined(SOC_BY_SW_FG)
 	battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_OCV, &hw_ocv_after_sleep);
+
+//BEGIN <><optimize the soft fule-gauge><20160429> panzaoyan
+	vol_bat1 = 15; 
+	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_ADC_V_BAT_SENSE, &vol_bat1);
+	HW_OCV1 = vol_bat1 + mtk_imp_tracking(vol_bat1, 350, 5);  //35mA
+	D0=fgauge_read_d_by_v(HW_OCV1);
+	battery_xlog_printk(BAT_LOG_CRTI, "[battery_meter_resume] vol_bat1=%d, HW_OCV1=%d\n", vol_bat1 ,HW_OCV1);
+	battery_xlog_printk(BAT_LOG_CRTI, "[battery_meter_resume] D0=%d,UI_SOC_TEMP=%d  oam=%d %d %d\n", D0,100-D0, oam_d0, oam_d_2, oam_d_5);
+	bm_print(BM_LOG_CRTI,
+		 "[battery_meter_resume]hw_ocv_after_sleep=(%d)v, g_hw_ocv_before_sleep=(%d)v \n",
+		 hw_ocv_after_sleep, g_hw_ocv_before_sleep);
+	if (_g_bat_sleep_total_time > 60) {
+		if ((hw_ocv_after_sleep <= g_hw_ocv_before_sleep) && (BMT_status.UI_SOC>100-D0))
+		{   
+		    if((D0 - oam_d0 >= 10 && oam_delta_time > 1800) 
+                      || (D0 - oam_d0 >= 4 && D0-oam_d0 < 10 && oam_delta_time > 900) 
+                      || (D0 - oam_d0 >= 2 && D0-oam_d0 < 4 && oam_delta_time > 300) 
+                      || (D0 - oam_d0 == 1) || (sleep_reflash_oam > 2) ) {
+			battery_xlog_printk(BAT_LOG_CRTI, "[battery_meter_resume] RS=%d, oam_delta_time=%ds, sleeptime=%ds, reflash=%d\n", D0 - oam_d0, oam_delta_time, _g_bat_sleep_total_time, sleep_reflash_oam);
+			oam_d0 = D0;
+			oam_v_ocv_2 = oam_v_ocv_1 = HW_OCV1;
+			oam_car_1 = 0;
+			oam_car_2 = 0;
+			oam_d_5 = oam_d0;
+			sleep_reflash_oam = 0;
+		    } else {
+			sleep_reflash_oam = sleep_reflash_oam + 1;
+		        oam_car_1 = oam_car_1 + (40* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600);
+		        oam_car_2 = oam_car_2 + (40* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600);
+		    }
+	       } else {
+		    oam_car_1 = oam_car_1 + (40* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600);
+		    oam_car_2 = oam_car_2 + (40* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600);
+	       }
+	} else {
+		oam_car_1 = oam_car_1 + (40 * (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600); 
+		oam_car_2 = oam_car_2 + (40 * (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600); 
+		g_sleep_oam_time = 0;
+	}
+//END <><optimize the soft fule-gauge><20160429> panzaoyan
+#if 0
 	if (_g_bat_sleep_total_time > 3600) {	/* 1hr */
 		if (hw_ocv_after_sleep < g_hw_ocv_before_sleep) {
 			oam_d0 = fgauge_read_d_by_v(hw_ocv_after_sleep);
@@ -4835,18 +4940,34 @@ static int battery_meter_resume(struct platform_device *dev)
 			oam_car_1 = 0;
 			oam_car_2 = 0;
 		} else {
-			oam_car_1 = oam_car_1 +
-				(40 * (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec) / 3600);
-/* 0.1mAh */
-			oam_car_2 = oam_car_2 +
-				(40 * (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec) / 3600);
-/* 0.1mAh */
+			if(g_sleep_oam_time >=90)
+			{
+				g_sleep_oam_time = 0;
+				oam_car_1 = oam_car_1 + (40* g_sleep_oam_time/3600); //0.1mAh
+				oam_car_2 = oam_car_2 + (40* g_sleep_oam_time/3600); //0.1mAh
+			} else {
+				oam_car_1 = oam_car_1 + (40* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600); //0.1mAh
+				oam_car_2 = oam_car_2 + (40* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600); //0.1mAh
+			}
+		}
+	}
+	else
+	{
+		if(g_sleep_oam_time >=180)
+		{
+			g_sleep_oam_time = 0;
+			oam_car_1 = oam_car_1 + (20* g_sleep_oam_time/3600); //0.1mAh
+			oam_car_2 = oam_car_2 + (20* g_sleep_oam_time/3600); //0.1mAh
+		} else {
+			oam_car_1 = oam_car_1 + (20* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600); //0.1mAh
+			oam_car_2 = oam_car_2 + (20* (rtc_time_after_sleep.tv_sec - g_rtc_time_before_sleep.tv_sec)/3600); //0.1mAh
 		}
 	}
 	/* FIXME */
+#endif
 
 	bm_print(BM_LOG_CRTI,
-		 "sleeptime=(%d)s, be_ocv=(%d), af_ocv=(%d), D0=(%d), car1=(%d), car2=(%d)\n",
+		 "[battery_meter_resume]sleeptime=(%d)s, be_ocv=(%d), af_ocv=(%d), D0=(%d), car1=(%d), car2=(%d)\n",
 		 _g_bat_sleep_total_time,
 		 g_hw_ocv_before_sleep, hw_ocv_after_sleep, oam_d0, oam_car_1, oam_car_2);
 #endif

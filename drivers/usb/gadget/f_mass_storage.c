@@ -230,6 +230,25 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #include "storage_common.c"
 
+#if defined(CONFIG_PROJECT_P4605_MMX_IN)
+#define PRODUCT_NAME "Micromax Q427"
+#define MASS_NAME "File-CD Gadget"
+#elif defined(CONFIG_PROJECT_P4601_CLF_PH)
+#define PRODUCT_NAME "Thrill Access"
+#define MASS_NAME "File-CD Gadget"
+#elif defined(CONFIG_PROJECT_P4605_BLU_US)
+#define PRODUCT_NAME "BLU Studio Touch"
+#define MASS_NAME "File-CD Gadget"
+#elif defined(CONFIG_PROJECT_P6601_BLU_US)
+#define PRODUCT_NAME "BLU R1 HD"
+#define MASS_NAME "File-CD Gadget"
+#elif defined(CONFIG_PROJECT_P4601_CAS_TR)
+#define PRODUCT_NAME "CASPER_VIA_E1"
+#define MASS_NAME "File-CD Gadget"
+#else
+#define PRODUCT_NAME "Linux"
+#define MASS_NAME "File-CD Gadget"
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -2810,11 +2829,11 @@ buffhds_first_it:
 	/* Prepare inquiryString */
 	i = get_default_bcdDevice();
 	snprintf(common->inquiry_string, sizeof common->inquiry_string,
-		 "%-8s%-16s%04x", cfg->vendor_name ?: "Linux",
+		 "%-8s%-16s%04x", cfg->vendor_name ?: PRODUCT_NAME,
 		 /* Assume product name dependent on the first LUN */
 		 cfg->product_name ?: (common->luns->cdrom
 				     ? "File-Stor Gadget"
-				     : "File-CD Gadget"),
+				     : MASS_NAME),
 		 i);
 
 	/*

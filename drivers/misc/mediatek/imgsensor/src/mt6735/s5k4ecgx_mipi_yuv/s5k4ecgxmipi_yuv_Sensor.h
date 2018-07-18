@@ -40,29 +40,6 @@
 //#define FPGA_TEST
 //#define __CAPTURE_JPEG_OUTPUT__
 
-#ifndef kal_uint32
-  #define unsigned int    kal_uint32;
-#endif
-
-#ifndef UINT32
-  #define UINT32    kal_uint32;
-#endif
-
-#ifndef kal_uint16
-  #define unsigned short    kal_uint16;
-#endif
-
-#ifndef kal_uint8
-  #define unsigned char    kal_uint8;
-#endif
-
-#ifndef UINT16
-  #define UINT16    kal_uint16;
-#endif
-
-#ifndef UINT8
-  #define UINT8    kal_uint8;
-#endif
 
 
 

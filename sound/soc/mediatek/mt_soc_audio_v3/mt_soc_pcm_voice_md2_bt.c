@@ -125,13 +125,11 @@ static int mtk_voice_md2_bt_pcm_open(struct snd_pcm_substream *substream)
 
 	pr_warn("mtk_voice_md2_bt_pcm_open\n");
 
-#if 0
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		pr_warn("%s  with SNDRV_PCM_STREAM_CAPTURE\n", __func__);
 		runtime->rate = 16000;
 		return 0;
 	}
-#endif
 	runtime->hw = mtk_pcm_hardware;
 	memcpy((void *)(&(runtime->hw)), (void *)&mtk_pcm_hardware , sizeof(struct snd_pcm_hardware));
 
@@ -148,16 +146,10 @@ static int mtk_voice_md2_bt_pcm_open(struct snd_pcm_substream *substream)
 	runtime->hw.info |= SNDRV_PCM_INFO_INTERLEAVED;
 	runtime->hw.info |= SNDRV_PCM_INFO_NONINTERLEAVED;
 
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-    {
-        printk("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_voice_md2_bt_constraints\n");
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_warn("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_voice_md2_bt_constraints\n");
 		runtime->rate = 16000;
 	}
-    else
-    {
-        printk("%s  AAAA with SNDRV_PCM_STREAM_CAPTURE \n", __func__);
-        runtime->rate = 16000;
-    }
 
 	if (err < 0) {
 		pr_err("mtk_voice_md2_bt_close\n");

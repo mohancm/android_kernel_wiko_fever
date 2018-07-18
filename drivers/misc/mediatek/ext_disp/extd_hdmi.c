@@ -461,7 +461,6 @@ static void _hdmi_rdma_irq_handler(DISP_MODULE_ENUM module, unsigned int param)
 static int hdmi_fence_release_kthread(void *data)
 {
 	int layid = 0;
-	int ret = 0;
 	unsigned int session_id = 0;
 	int fence_idx = 0;
 	bool ovl_reg_updated = false;
@@ -485,20 +484,14 @@ static int hdmi_fence_release_kthread(void *data)
 			if (ext_disp_get_ovl_req_status(MHL_SESSION_ID) == EXTD_OVL_REMOVED)
 				ext_disp_path_change(EXTD_OVL_NO_REQ, MHL_SESSION_ID);
 
-			ret = ext_disp_get_curr_addr(input_curr_addr, 0);
-			if (ret)
-				continue;
-
+			ext_disp_get_curr_addr(input_curr_addr, 0);
 			fence_idx = disp_sync_find_fence_idx_by_addr(session_id, 0, input_curr_addr[0]);
 			mtkfb_release_fence(session_id, 0, fence_idx);
 		} else {
 			if (ext_disp_get_ovl_req_status(MHL_SESSION_ID) == EXTD_OVL_INSERTED)
 				ext_disp_path_change(EXTD_OVL_NO_REQ, MHL_SESSION_ID);
 
-			ret = ext_disp_get_curr_addr(input_curr_addr, 1);
-			if (ret)
-				continue;
-
+			ext_disp_get_curr_addr(input_curr_addr, 1);
 			for (layid = 0; layid < EXTD_OVERLAY_CNT; layid++) {
 				if (ovl_config_address[layid] != input_curr_addr[layid]) {
 					ovl_config_address[layid] = input_curr_addr[layid];
@@ -611,7 +604,7 @@ static void hdmi_state_reset(void)
 	ext_disp_suspend(MHL_SESSION_ID);
 	session_id = ext_disp_get_sess_id();
 
-	for (i = 0; i < HW_OVERLAY_COUNT; i++)
+	for (i = 0; i < EXTD_OVERLAY_CNT; i++)
 		mtkfb_release_layer_fence(session_id, i);
 
 	first_frame_done = 0;
@@ -678,8 +671,6 @@ static void hdmi_state_reset(void)
 
 /*static*/ void hdmi_power_off(void)
 {
-	int i = 0;
-	int session_id = 0;
 	HDMI_FUNC();
 	if (IS_HDMI_OFF())
 		return;
@@ -691,11 +682,6 @@ static void hdmi_state_reset(void)
 
 	hdmi_drv->power_off();
 	ext_disp_suspend(MHL_SESSION_ID);
-	session_id = ext_disp_get_sess_id();
-
-	for (i = 0; i < HW_OVERLAY_COUNT; i++)
-		mtkfb_release_layer_fence(session_id, i);
-
 	p->is_clock_on = false;
 	SET_HDMI_OFF();
 	up(&hdmi_update_mutex);
@@ -1058,7 +1044,7 @@ int hdmi_set_resolution(int res)
 
 		session_id = ext_disp_get_sess_id();
 
-		for (i = 0; i < HW_OVERLAY_COUNT; i++)
+		for (i = 0; i < EXTD_OVERLAY_CNT; i++)
 			mtkfb_release_layer_fence(session_id, i);
 	}
 
@@ -1263,25 +1249,6 @@ int hdmi_ioctl(unsigned int ioctl_cmd, int param1, int param2, unsigned long *pa
 	return ret;
 }
 
-int hdmi_is_force_awake(void *argp)
-{
-	int ret;
-
-	if (!argp) {
-		HDMI_LOG("ioctl pointer is NULL\n");
-		return -EFAULT;
-	}
-
-	/*only for hdmi cable,maybe mhl cable need this too*/
-	if (hdmi_params->cabletype == HDMI_CABLE) {
-		ret = copy_to_user(argp, &hdmi_params->is_force_awake, sizeof(hdmi_params->is_force_awake));
-	} else {
-		HDMI_ERR("[ERROR]cabletype is not HDMI_CABLE\n");
-		ret = -EFAULT;
-	}
-	return ret;
-}
-
 void hdmi_udelay(unsigned int us)
 {
 	udelay(us);
@@ -1386,7 +1353,6 @@ const struct EXTD_DRIVER *EXTD_HDMI_Driver(void)
 		.fake_connect =      hdmi_cable_fake_connect,
 		.factory_mode_test = NULL,
 		.ioctl =             hdmi_ioctl,
-		.is_force_awake =	 hdmi_is_force_awake,
 #else
 		.init = 0,
 #endif

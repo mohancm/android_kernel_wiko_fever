@@ -218,10 +218,6 @@
 #define MT_SOC_FM_I2S_CAPTURE_NAME "mt-soc-fmi2Scapturedai-driver"
 #define MT_SOC_OFFLOAD_GDMA_NAME "mt-soc-offload-gdma-driver"
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-#define MT_SOC_DUMMY_I2S_DAI_NAME "mtk-florida-i2s"
-#define MT_SOC_DUMMY_I2S_RECORD_DAI_NAME "mtk-florida-i2s-record"
-#endif
 
 /* platform name */
 #define MT_SOC_DL1_PCM   "mt-soc-dl1-pcm"
@@ -259,10 +255,6 @@
 #define MT_SOC_FM_I2S_AWB_PCM  "mt-soc-fm-i2s-awb-pcm"
 #define MT_SOC_OFFLOAD_GDMA_PCM "mt-soc-offload-gdma-pcm"
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-#define MT_SOC_DUMMY_I2S_PCM "mt-soc-dump-i2s-pcm"
-#define MT_SOC_DUMMY_I2S_RECORD_PCM "mt-soc-dump-i2s2-pcm"
-#endif
 
 /* codec dai name */
 #define MT_SOC_CODEC_TXDAI_NAME "mt-soc-codec-tx-dai"
@@ -338,8 +330,4 @@
 #define MT_SOC_FM_I2S_CAPTURE_STREAM_NAME "FM_I2S_Capture"
 #define MT_SOC_OFFLOAD_GDMA_STREAM_NAME "OFFLOAD_GDMA_Playback"
 
-#if defined(CONFIG_SND_SOC_FLORIDA)
-#define MT_SOC_DUMMY_I2S_STREAM_PCM "mt-soc-dump-i2s-stream-pcm"
-#define MT_SOC_DUMMY_I2S_RECORD_STREAM_PCM "mt-soc-dump-i2s-record-stream-pcm"
-#endif
 #endif

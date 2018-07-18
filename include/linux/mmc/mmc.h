@@ -451,5 +451,13 @@ struct _mmc_csd {
 #define MMC_SWITCH_MODE_SET_BITS	0x01	/* Set bits which are 1 in value */
 #define MMC_SWITCH_MODE_CLEAR_BITS	0x02	/* Clear bits which are 1 in value */
 #define MMC_SWITCH_MODE_WRITE_BYTE	0x03	/* Set target to value */
-
+//@xuchunsheng added start for adding flash information in *#0661# in 11/17/2015
+typedef struct
+{
+    char vendorName[16];
+    char id[32];
+    char ramSize[8];
+    char romSize[8];
+}FLASH_INFO_SETTINGS;
+//@xuchunsheng added end
 #endif /* LINUX_MMC_MMC_H */

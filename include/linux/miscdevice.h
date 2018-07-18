@@ -34,8 +34,6 @@
 #define VFIO_MINOR		196
 #define TUN_MINOR		200
 #define CUSE_MINOR		203
-#define M_STEP_C_MISC_MINOR     209
-#define M_TILT_MISC_MINOR       210
 #define MWAVE_MINOR		219	/* ACP/Mwave Modem */
 #define MPT_MINOR		220
 #define MPT2SAS_MINOR		221

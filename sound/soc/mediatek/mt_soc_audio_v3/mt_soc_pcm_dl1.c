@@ -106,6 +106,9 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
+#include <linux/of_gpio.h>//yangliang add for enable mtk external pa mode-2
+#include <linux/gpio.h>//yangliang add for operating gpios directly;
+
 #ifdef CONFIG_MTK_LEGACY
 static unsigned int pin_extspkamp, pin_extspkamp_2, pin_vowclk, pin_audclk, pin_audmiso,
 	pin_audmosi, pin_i2s1clk, pin_i2s1dat, pin_i2s1mclk, pin_i2s1ws, pin_rcvspkswitch;
@@ -125,6 +128,13 @@ static struct snd_dma_buffer *Dl1_Playback_dma_buf;
 static DEFINE_SPINLOCK(auddrv_DLCtl_lock);
 
 static struct device *mDev;
+
+//yangliang add for enable mtk external pa mode-2;
+const char *spk_ext_pa = "gpio_extspkamp";//"extspkamp-gpio";
+int spk_ext_pa_gpio;
+int pin_extspkamp_yl;
+#include <linux/of_gpio.h>
+//yangliang add for enable mtk external pa mode-2;end
 
 /*
  *    function implementation
@@ -167,7 +177,7 @@ static int mtk_pcm_dl1_stop(struct snd_pcm_substream *substream)
 {
 	pr_warn("%s\n", __func__);
 
-	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, false);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1, false);
 
 	/* here start digital part */
@@ -413,6 +423,9 @@ static int mtk_pcm_prepare(struct snd_pcm_substream *substream)
 		} else {
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
 		}
+		/* here to set interrupt_distributor */
+		SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->period_size);
+		SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->rate);
 
 		EnableAfe(true);
 		mPrepareDone = true;
@@ -433,11 +446,7 @@ static int mtk_pcm_dl1_start(struct snd_pcm_substream *substream)
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I06,
 		      Soc_Aud_InterConnectionOutput_O04);
 
-	/* here to set interrupt */
-	irq_add_user(substream,
-		     Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE,
-		     substream->runtime->rate,
-		     substream->runtime->period_size);
+	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, true);
 
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_DL1, runtime->rate);
 	SetChannels(Soc_Aud_Digital_Block_MEM_DL1, runtime->channels);
@@ -1033,9 +1042,52 @@ int GetGPIO_Info(int type, int *pin, int *pinmode)
 	return 0;
 }
 EXPORT_SYMBOL(GetGPIO_Info);
-#endif
 
 #endif
+
+//yangliang add for enable mtk external pa mode-2;
+int Auddrv_OF_ParseGPIO_ForExtPa(void *dev)
+{
+	/* struct device_node *node = NULL; */
+	struct device *pdev = dev;
+	//unsigned int pin_extspkamp;
+	pr_err("%s-1,pdev->of_node=%p\n", __func__,pdev->of_node);
+	if (!pdev->of_node) {
+		pr_err("%s-2\n", __func__);
+		pr_err("%s invalid of_node\n", __func__);
+		return -ENODEV;
+	}
+	
+	//yangliang add for enable mtk external pa mode-2;
+	//if (of_property_read_u32_index(pdev->of_node, "extspkamp-gpio", 0, &pin_extspkamp_yl)) {
+		//if_config5 = 0;
+	//	printk(KERN_ERR"yangliang extspkamp-gpio get pin fail!!!\n");
+	//}
+	//printk(KERN_ERR"yangliang %s pin_extspkamp=%d\n",__func__,pin_extspkamp_yl);//19
+	
+	spk_ext_pa_gpio = of_get_named_gpio(pdev->of_node,spk_ext_pa, 0);
+	printk(KERN_ERR"%s spk_ext_pa_gpio=%d\n",__func__,spk_ext_pa_gpio);
+	if (spk_ext_pa_gpio < 0) {
+	//if (pin_extspkamp_yl < 0) {
+		pr_err("%s-3\n", __func__);////////////////////--------------
+		pr_err("%s: missing %s in dt node\n", __func__, spk_ext_pa);
+	} else {
+		pr_err("%s-4\n", __func__);
+		if (!gpio_is_valid(spk_ext_pa_gpio)) {
+		//if (!gpio_is_valid(pin_extspkamp_yl)) {
+			pr_err("%s-5\n", __func__);
+			pr_err("%s: Invalid external speaker gpio: %d",
+				__func__,spk_ext_pa_gpio);
+			return -EINVAL;
+		}
+		//gpio_direction_output(pin_extspkamp_yl, 0); 
+	}
+	pr_err("%s-6\n", __func__);
+	return 0;
+	//yangliang add for enable mtk external pa mode-2; end
+}
+#endif
+//yangliang add for enable mtk external pa mode-2;end
 
 static void DL1GlobalVarInit(void)
 {
@@ -1090,7 +1142,9 @@ static int mtk_soc_dl1_probe(struct platform_device *pdev)
 	}
 
 #ifndef CONFIG_MTK_LEGACY
-	AudDrv_GPIO_probe(&pdev->dev);
+	AudDrv_GPIO_probe(&pdev->dev);//
+	printk(KERN_ERR"%s-1\n", __func__);
+	Auddrv_OF_ParseGPIO_ForExtPa(&pdev->dev);//yangliang add for enable mtk external pa mode-2;
 #else
 	ret = Auddrv_OF_ParseGPIO(&pdev->dev);
 	if (ret) {

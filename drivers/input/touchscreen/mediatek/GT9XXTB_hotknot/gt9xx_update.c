@@ -131,6 +131,7 @@ u16 total_len;
 u8 searching_file = 0;
 u8 got_file_flag = 0;
 u8 load_fw_process = 0;
+extern int GT9xx_ftm_force_update;
 
 #define _CLOSE_FILE(p_file) \
 		do {\
@@ -431,7 +432,7 @@ static u8 gup_enter_update_judge(struct st_fw_head *fw_head)
 			GTP_DEBUG("Get the same pid.");
 
 		/* The third condition */
-		if (fw_head->vid > update_msg.ic_fw_msg.vid) {
+		if ((fw_head->vid > update_msg.ic_fw_msg.vid) || (GT9xx_ftm_force_update == 1)) {
 
 			GTP_INFO("Need enter update.");
 			return SUCCESS;
@@ -625,7 +626,8 @@ static void gup_search_file(s32 search_type)
 			}
 		}
 #endif
-		msleep(3000);
+		//msleep(3000);
+		msleep(1000);//yangliang mask and modify from 3s to 1s for ftm tpupgrade cost too much time;20160321
 	}
 	searching_file = 0;
 }
@@ -1959,6 +1961,7 @@ s32 gup_update_proc(void *dir)
 		goto file_fail;
 	}
 	/* mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM); */
+       load_fw_process = 1;
 	disable_irq(touch_irq);
 #if defined(CONFIG_GTP_ESD_PROTECT)
 	gtp_esd_switch(i2c_client_point, SWITCH_OFF);
@@ -2050,6 +2053,7 @@ update_fail:
 		if (ret < 0)
 			GTP_ERROR("[update_proc]send config fail.");
 	}
+      load_fw_process = 0;
 #if defined(CONFIG_GTP_ESD_PROTECT)
 	gtp_esd_switch(i2c_client_point, SWITCH_ON);
 #endif

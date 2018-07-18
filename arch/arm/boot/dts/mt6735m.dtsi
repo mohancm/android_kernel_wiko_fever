@@ -218,6 +218,10 @@
 			clock-frequency = <13000000>;
 		};
 
+		dispte: dispte@0 {
+			compatible = "mediatek,DispTE_gpio";
+		};
+
 		timer {
 			compatible = "arm,armv8-timer";
 			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /*Secure Physical Timer Event*/
@@ -227,6 +231,14 @@
 				clock-frequency = <13000000>;
 		};
 
+		fp: fp@0 {
+			compatible = "mediatek,fingerprint";
+			vfp-supply = <&mt_pmic_vgp1_ldo_reg>;
+			vfp_mv= <2800>;
+			interrupt-parent = <&eintc>;
+	              interrupts = <9 IRQ_TYPE_EDGE_RISING>;
+	              debounce = <9 0>;
+		};
 		mt_pmic_regulator {
 			compatible = "mediatek,mt_pmic";
 			/*reg = <0x01>*/
@@ -1239,7 +1251,7 @@
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
 		};
 
-		mt_soc_dl1_pcm@11220000 {
+		audgpio:mt_soc_dl1_pcm@11220000 {//yangliang add audgpio: for 4605 extpa;20160201
 			compatible = "mediatek,mt-soc-dl1-pcm";
 			reg = <0x11220000 0x1000>;
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
@@ -1247,11 +1259,24 @@
 			audmiso-gpio = <144 0>;
 			audmosi-gpio = <145 0>;
 			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <117 0>;
+			//extspkamp-gpio = <117 0>;
+			//extspkamp-gpio = <19 0>;//yangliang mask for 4605 extpa mode2;20160322
 			i2s1clk-gpio = <80 0>;
 			i2s1dat-gpio = <78 0>;
 			i2s1mclk-gpio = <9 0>;
 			i2s1ws-gpio = <79 0>;
+		};
+		mhall: mhall {
+			compatible = "mediatek, mhall-eint";
+		};
+		flash_light: flashlight@0 {
+			compatible = "mediatek,strobe_gpio";
+		};
+		dsi_te_1: dsi_te_1 {
+			compatible = "mediatek, dsi_te-eint";
+		};
+		tinno_hall: hall@0 {
+			compatible = "mediatek, hall";
 		};
 
 		mt_soc_ul1_pcm@11220000 {
@@ -1772,7 +1797,7 @@
 		m_baro_pl@0 {
 			compatible = "mediatek,m_baro_pl";
 		};
-		msensor@0 {
+		mag:msensor@0 {
 			compatible = "mediatek,msensor";
 		};
 		m_mag_pl@0 {
@@ -1866,6 +1891,7 @@
 			bias-pull-up = <00>;
 		};
 	};
+
 
 	ssw_sim1_md3_sim2_md1:ssw@4 {
 		pins_cmd0_dat {

@@ -1,3 +1,5 @@
+include $(srctree)/drivers/misc/mediatek/Makefile.custom
+
 # In case the platform does NOT support this type of sensors
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/hwmon/include
 obj-y   +=  gyroscope.o gyro_factory.o
@@ -17,6 +19,3 @@ obj-$(CONFIG_MTK_L3GD20)   +=  l3gd20/
 obj-$(CONFIG_MTK_LSM6DS0)   +=  lsm6ds0/
 obj-$(CONFIG_MTK_LSM6DS3)   +=  lsm6ds3gy/
 obj-$(CONFIG_MTK_ICM20645GY)   +=  icm20645gy/
-#lenovo-sw, chenzz3, integrate gyroscope driver, begin
-obj-$(CONFIG_MTK_LSM6DS3GY) += lsm6ds3gy/
-#lenovo-sw, chenzz3, integrate gyroscope driver, end

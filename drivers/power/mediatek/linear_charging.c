@@ -69,7 +69,9 @@
 #include <mt-plat/battery_meter.h>
 #include <mt-plat/battery_common.h>
 #include <mt-plat/charging.h>
-#include <mach/mt_charging.h>
+//#include <mach/mt_charging.h>
+#include "cust_charging.h"
+
 #include <mt-plat/mt_boot.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
@@ -97,6 +99,8 @@
  /* ============================================================ // */
 unsigned int g_bcct_flag = 0;
 CHR_CURRENT_ENUM g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
+CHR_CURRENT_ENUM g_temp_standar_charger_value = CHARGE_CURRENT_550_00_MA; //yixuhong 20151116 add for test
+
 unsigned int g_usb_state = USB_UNCONFIGURED;
 unsigned int charging_full_current;	/* = CHARGING_FULL_CURRENT; *//* mA */
 unsigned int v_cc2topoff_threshold;	/* = V_CC2TOPOFF_THRES; */
@@ -752,12 +756,58 @@ static void set_jeita_charging_current(void)
 	if (BMT_status.charger_type == STANDARD_HOST)
 		return;
 #endif
-
+	#if 0
 	if (g_temp_status == TEMP_NEG_10_TO_POS_0) {
 		g_temp_CC_value = CHARGE_CURRENT_200_00_MA;	/* for low temp */
 		battery_log(BAT_LOG_CRTI, "[BATTERY] JEITA set charging current : %d\r\n",
 			    g_temp_CC_value);
 	}
+	
+	#else
+	if(g_temp_status == TEMP_POS_45_TO_POS_60)
+    {
+	#if defined(CONFIG_TINNO_QUICK_CHARGING)
+        if (BMT_status.charger_type == TINNO_1_5A_CHARGER) 
+        {
+            g_temp_CC_value = JEITA_TEMP_POS_45_TO_POS_60_CC_CURRENT;
+        }
+		if (BMT_status.charger_type == APPLE_2_1A_CHARGER) 
+        {
+            g_temp_CC_value = JEITA_TEMP_POS_45_TO_POS_60_CC_CURRENT;
+        }
+	#else
+		    g_temp_CC_value = JEITA_TEMP_POS_45_TO_POS_60_CC_CURRENT;
+	#endif
+        
+        battery_xlog_printk(BAT_LOG_CRTI, "[BATTERY] JEITA set charging current : %d\r\n", g_temp_CC_value);
+    }
+	else if(g_temp_status == TEMP_POS_10_TO_POS_45){
+        
+	#if defined(CONFIG_TINNO_QUICK_CHARGING)
+        if (BMT_status.charger_type == TINNO_1_5A_CHARGER) 
+        {
+            g_temp_CC_value = JEITA_TEMP_POS_10_TO_POS_45_CC_CURRENT;
+        }
+        if (BMT_status.charger_type == APPLE_2_1A_CHARGER) 
+        {
+            g_temp_CC_value = JEITA_TEMP_POS_10_TO_POS_45_CC_CURRENT;
+        }
+	#else
+		    g_temp_CC_value = JEITA_TEMP_POS_10_TO_POS_45_CC_CURRENT;
+	#endif
+		
+        battery_xlog_printk(BAT_LOG_CRTI, "[BATTERY] JEITA set charging current : %d\r\n", g_temp_CC_value);		
+	}
+	else if(g_temp_status == TEMP_POS_0_TO_POS_10)
+    {
+        g_temp_CC_value = JEITA_TEMP_POS_0_TO_POS_10_CC_CURRENT;
+        battery_xlog_printk(BAT_LOG_CRTI, "[BATTERY] JEITA set charging current : %d\r\n", g_temp_CC_value);		
+	}	
+	else
+	{
+		g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
+	}	
+#endif
 }
 
 #endif
@@ -924,10 +974,21 @@ void select_charging_curret(void)
 		} else if (BMT_status.charger_type == NONSTANDARD_CHARGER) {
 			g_temp_CC_value = batt_cust_data.non_std_ac_charger_current;
 		} else if (BMT_status.charger_type == STANDARD_CHARGER) {
-			g_temp_CC_value = batt_cust_data.ac_charger_current;
+			g_temp_CC_value = MIN_AC_CHARGER_CURRENT;
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT)
-			if (is_ta_connect == KAL_TRUE && ta_vchr_tuning == KAL_TRUE)
+			if(is_ta_connect == KAL_TRUE && ta_vchr_tuning == KAL_TRUE)
 				g_temp_CC_value = CHARGE_CURRENT_1500_00_MA;
+#endif
+#if defined(CONFIG_TINNO_QUICK_CHARGING) //yixuhong 20151116 add for test
+			if(g_temp_standar_charger_value > MAX_AC_CHARGER_CURRENT)
+			{
+				g_temp_CC_value = MAX_AC_CHARGER_CURRENT;
+			}
+			else if((g_temp_standar_charger_value <= MAX_AC_CHARGER_CURRENT) && (g_temp_standar_charger_value > MIN_AC_CHARGER_CURRENT))
+			{
+				g_temp_CC_value = g_temp_standar_charger_value;
+			}
+			battery_log(BAT_LOG_CRTI,"[yixuhong] standard charger cc mode g_temp_CC_value =%d \n",g_temp_CC_value);
 #endif
 		} else if (BMT_status.charger_type == CHARGING_HOST) {
 			g_temp_CC_value = batt_cust_data.charging_host_charger_current;
@@ -937,7 +998,14 @@ void select_charging_curret(void)
 			g_temp_CC_value = batt_cust_data.apple_1_0a_charger_current;
 		} else if (BMT_status.charger_type == APPLE_0_5A_CHARGER) {
 			g_temp_CC_value = batt_cust_data.apple_0_5a_charger_current;
-		} else {
+		}	
+	#if defined(CONFIG_TINNO_QUICK_CHARGING)
+		else if (BMT_status.charger_type == TINNO_1_5A_CHARGER) 
+		{
+			g_temp_CC_value = TINNO_1_5A_CHARGER_CURRENT;
+		}
+	#endif
+		else {
 			g_temp_CC_value = CHARGE_CURRENT_70_00_MA;
 		}
 
@@ -950,7 +1018,11 @@ void select_charging_curret(void)
 	}
 }
 
-
+#ifdef MMX_IN_FULL_POWER
+	#define FULL_CHECK_TIMES 1
+#else
+	#define FULL_CHECK_TIMES 3
+#endif
 
 
 static unsigned int charging_full_check(void)
@@ -986,7 +1058,7 @@ static unsigned int charging_full_check(void)
 
 	if (BMT_status.ICharging <= charging_full_current) {
 		full_check_count++;
-		if (6 == full_check_count) {
+		if (FULL_CHECK_TIMES == full_check_count) {
 			status = KAL_TRUE;
 			full_check_count = 0;
 			battery_log(BAT_LOG_CRTI,
@@ -1055,6 +1127,9 @@ static void pchr_sw_cv_charing_current_check(void)
 		battery_log(BAT_LOG_CRTI, "[BATTERY] Sw CV set charging current Error!\n");
 }
 
+#if defined(CONFIG_TINNO_QUICK_CHARGING)
+extern unsigned int maxPgFlag;
+#endif
 static void pchr_turn_on_charging(void)
 {
 #if !defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
@@ -1118,6 +1193,75 @@ static void pchr_turn_on_charging(void)
 			battery_log(BAT_LOG_CRTI,
 				    "[BATTERY] charging current is set 0mA, turn off charging !\r\n");
 		} else {
+		
+		#if defined(CONFIG_TINNO_QUICK_CHARGING) 
+		battery_xlog_printk(BAT_LOG_CRTI, "maxPgFlag=%d\r\n",maxPgFlag);
+		if(1 == maxPgFlag) //over pg set 700ma
+		{
+	#if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
+			if(g_temp_status == TEMP_POS_45_TO_POS_60)
+			{
+				g_temp_CC_value = AC_CHARGER_CURRENT;
+				battery_xlog_printk(BAT_LOG_CRTI, "maxPG [BATTERY] JEITA set charging current : %d\r\n", g_temp_CC_value);
+			}
+			else if(g_temp_status == TEMP_POS_10_TO_POS_45)
+			{ 
+				g_temp_CC_value = AC_CHARGER_CURRENT;
+				battery_xlog_printk(BAT_LOG_CRTI, "maxPG TEMP_POS_10_TO_POS_45 JEITA set charging current : %d\r\n", g_temp_CC_value);		
+			}
+			else if(g_temp_status == TEMP_POS_0_TO_POS_10)
+			{
+				g_temp_CC_value = JEITA_TEMP_POS_0_TO_POS_10_CC_CURRENT;
+				battery_xlog_printk(BAT_LOG_CRTI, "maxPG TEMP_POS_0_TO_POS_10 JEITA set charging current : %d\r\n", g_temp_CC_value);		
+			}	
+			else
+			{
+				g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
+			}	
+	#else
+			g_temp_CC_value = AC_CHARGER_CURRENT;
+	#endif
+			battery_charging_control(CHARGING_CMD_SET_CURRENT,&g_temp_CC_value);
+		}
+		else if(2 == maxPgFlag) //after set 700ma also over pg 
+		{
+	#if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
+			if(g_temp_status == TEMP_POS_45_TO_POS_60)
+			{
+				g_temp_CC_value = USB_CHARGER_CURRENT;
+				battery_xlog_printk(BAT_LOG_CRTI, "maxPG [BATTERY] JEITA set charging current : %d\r\n", g_temp_CC_value);
+			}
+			else if(g_temp_status == TEMP_POS_10_TO_POS_45)
+			{	
+				g_temp_CC_value = USB_CHARGER_CURRENT;
+				battery_xlog_printk(BAT_LOG_CRTI, "maxPG TEMP_POS_10_TO_POS_45 JEITA set charging current : %d\r\n", g_temp_CC_value);		
+			}
+			else if(g_temp_status == TEMP_POS_0_TO_POS_10)
+			{	
+				g_temp_CC_value = JEITA_TEMP_POS_0_TO_POS_10_CC_CURRENT;
+				battery_xlog_printk(BAT_LOG_CRTI, "maxPG TEMP_POS_0_TO_POS_10 JEITA set charging current : %d\r\n", g_temp_CC_value);		
+			}	
+			else
+			{
+				g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
+			}	
+	#else
+			g_temp_CC_value = USB_CHARGER_CURRENT;
+	#endif
+			battery_charging_control(CHARGING_CMD_SET_CURRENT,&g_temp_CC_value);
+		}
+		else if(3 == maxPgFlag) //after set 500ma also over pg 
+		{
+			g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
+			battery_charging_control(CHARGING_CMD_SET_CURRENT,&g_temp_CC_value);
+		}
+		else
+		{
+			select_charging_curret();		
+			battery_charging_control(CHARGING_CMD_SET_CURRENT,&g_temp_CC_value);
+		}
+#else
+
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT)
 if (ta_check_ta_control == KAL_FALSE)
 #endif
@@ -1129,7 +1273,7 @@ if (ta_check_ta_control == KAL_FALSE)
 					battery_charging_control(CHARGING_CMD_SET_CURRENT,
 								 &g_temp_CC_value);
 			}
-
+#endif
 			/* Set CV */
 #if !defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
 			if (batt_cust_data.high_battery_voltage_support)
@@ -1178,6 +1322,8 @@ PMU_STATUS BAT_PreChargeModeAction(void)
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT)	/* defined(MTK_LINEAR_CHARGER_NO_DISCHARGE) */
 	/* no disable charging */
 #else
+#if defined(CONFIG_TINNO_QUICK_CHARGING)
+#else
 	{
 		kal_bool charging_enable = KAL_FALSE;
 
@@ -1185,6 +1331,7 @@ PMU_STATUS BAT_PreChargeModeAction(void)
 		battery_charging_control(CHARGING_CMD_ENABLE, &charging_enable);
 		msleep(1000);
 	}
+#endif
 #endif
 
 	charging_current_calibration();
@@ -1213,6 +1360,9 @@ PMU_STATUS BAT_ConstantCurrentModeAction(void)
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT)	/* defined(MTK_LINEAR_CHARGER_NO_DISCHARGE) */
 	/* no disable charging#else */
 #else
+#if defined(CONFIG_TINNO_QUICK_CHARGING)
+#else
+
 	{
 		kal_bool charging_enable = KAL_FALSE;
 
@@ -1220,6 +1370,7 @@ PMU_STATUS BAT_ConstantCurrentModeAction(void)
 		battery_charging_control(CHARGING_CMD_ENABLE, &charging_enable);
 		msleep(1000);
 	}
+#endif
 #endif
 
 	charging_current_calibration();

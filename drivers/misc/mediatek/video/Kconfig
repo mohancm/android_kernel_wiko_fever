@@ -84,3 +84,5 @@ config SINGLE_PANEL_OUTPUT
 	  When hdmi plug in, only show display in tv, panle will be black screen.
 	  And when hdmi plug out, panel will resume.
 
+config MTK_DISPTE_GPIO
+        bool "MediaTek DISPTE GPIO Support"

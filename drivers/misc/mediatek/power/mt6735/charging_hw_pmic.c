@@ -8,7 +8,8 @@
 #include <linux/reboot.h>
 #include <mt-plat/mt_boot.h>
 #include <mt-plat/battery_common.h>
-#include <mach/mt_charging.h>
+//#include <mach/mt_charging.h>
+#include "cust_charging.h"
 #include <mach/mt_pmic.h>
 
 

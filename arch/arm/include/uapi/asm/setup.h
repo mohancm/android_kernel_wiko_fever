@@ -143,13 +143,6 @@ struct tag_memclk {
 	__u32 fmemclk;
 };
 
-/*Lenovo-sw quebs2 added 20150510 begin,support efuse check with sbc flag*/
-#define ATAG_SBC_FLAG      0x88610015
-struct tag_sbc_flag {
-    u32 sbc_flag;
-};
-/*Lenovo-sw quebs2 added 20150510 end,support efuse check with sbc flag*/
-
 /* general memory descriptor */
 struct mem_desc {
 	u64 start;
@@ -186,9 +179,6 @@ struct tag {
 		struct tag_videolfb	videolfb;
 		struct tag_cmdline	cmdline;
 
-		/*Lenovo-sw quebs2 added 20150510 begin,support fuse check with sbc flag*/
-                struct tag_sbc_flag;
-                /*Lenovo-sw quebs2 added 20150510 end,support fuse check with sbc flag*/
 		/*
 		 * Acorn specific
 		 */

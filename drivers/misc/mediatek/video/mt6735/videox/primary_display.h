@@ -1,26 +1,12 @@
 #ifndef _PRIMARY_DISPLAY_H_
 #define _PRIMARY_DISPLAY_H_
 
-#include "../dispsys/ddp_hal.h"
-#include "../dispsys/ddp_manager.h"
+#include "ddp_hal.h"
+#include "ddp_manager.h"
 #include <linux/types.h>
 #include "disp_lcm.h"
 #include "disp_session.h"
-//lenovo wengjun1 20160126 add for DSI_TE gpio configruation begin
-#include <mach/gpio_const.h>
-//lenovo wengjun1 20160126 add for DSI_TE gpio configruation end
 
-//lenovo wengjun1 20160126 add for DSI_TE gpio configruation begin
-/*
-#define GPIO_DSI_TE_PIN         (GPIO147 | 0x80000000)
-#define GPIO_DSI_TE_PIN_M_GPIO   GPIO_MODE_00
-#define GPIO_DSI_TE_PIN_M_DSI_TE   GPIO_MODE_01
-#define CUST_EINT_DSI_TE_1_NUM              147
-#define CUST_EINT_DSI_TE_1_DEBOUNCE_CN      0
-#define CUST_EINT_DSI_TE_1_TYPE							CUST_EINTF_TRIGGER_RISING
-#define CUST_EINT_DSI_TE_1_DEBOUNCE_EN      CUST_EINT_DEBOUNCE_DISABLE
-*/
-//lenovo wengjun1 20160126 add for DSI_TE gpio configruation end
 typedef enum {
 	DIRECT_LINK_MODE,
 	DECOUPLE_MODE,
@@ -53,10 +39,6 @@ extern unsigned int ext_session_id;
 extern unsigned int is_hwc_enabled;
 #ifdef CONFIG_SINGLE_PANEL_OUTPUT
 extern  unsigned int g_suspend_flag;
-#endif
-
-#ifdef CONFIG_ALL_IN_TRIGGER_STAGE
-extern unsigned int is_output_buffer_set;
 #endif
 
 typedef struct {
@@ -344,12 +326,6 @@ int primary_display_insert_session_buf(disp_session_buf_info *session_buf_info);
 int primary_display_enable_path_cg(int enable);
 int primary_display_lcm_ATA(void);
 int primary_display_setbacklight(unsigned int level);
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE begin
-#ifdef CONFIG_LENOVO_CUSTOM_LCM_FEATURE
-int primary_display_setcabc(unsigned int mode);
-int primary_display_setinverse(unsigned int mode);
-#endif
-//lenovo wuwl10 20150604 add CUSTOM_LCM_FEATURE end
 int fbconfig_get_esd_check_test(uint32_t dsi_id, uint32_t cmd, uint8_t *buffer, uint32_t num);
 int primary_display_pause(PRIMARY_DISPLAY_CALLBACK callback, unsigned int user_data);
 int primary_display_switch_dst_mode(int mode);

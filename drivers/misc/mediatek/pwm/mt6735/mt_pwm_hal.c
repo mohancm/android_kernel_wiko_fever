@@ -63,17 +63,6 @@ int pwm_power_id[] = {
 #ifdef CONFIG_OF
 unsigned long PWM_register[PWM_NUM] = {};
 #else
-#if CONFIG_SPI_BITBANG //pwm_spi
-unsigned long PWM_register[PWM_NUM] = {
-	(PWM_BASE+0x0010),	   /* PWM1 register base,   15 registers */
-	(PWM_BASE+0x0050),	   /* PWM2 register base    15 registers */
-	(PWM_BASE+0x0090),	   /* PWM3 register base    15 registers */
-	(PWM_BASE+0x00d0),	   /* PWM4 register base    13 registers */
-	(PWM_BASE+0x0110),	   /* PWM5 register base    13 registers */
-	(PWM_BASE+0x0150),	   //PWM5 register base    13 registers
-	(PWM_BASE+0x0190),	   //PWM6 register base    13 registers
-};
-#else
 unsigned long PWM_register[PWM_NUM] = {
 	(PWM_BASE+0x0010),	   /* PWM1 register base,   15 registers */
 	(PWM_BASE+0x0050),	   /* PWM2 register base    15 registers */
@@ -81,7 +70,6 @@ unsigned long PWM_register[PWM_NUM] = {
 	(PWM_BASE+0x00d0),	   /* PWM4 register base    13 registers */
 	(PWM_BASE+0x0110),	   /* PWM5 register base    13 registers */
 };
-#endif
 #endif
 /**************************************************************/
 
@@ -524,7 +512,7 @@ void pwm_debug_store_hal(void)
 
 void pwm_debug_show_hal(void)
 {
-	//mt_pwm_dump_regs_hal();
+	mt_pwm_dump_regs_hal();
 }
 
 /*----------3dLCM support-----------*/
@@ -583,100 +571,5 @@ int mt_get_pwm_clk_src(struct platform_device *pdev)
 		}
 	}
 	return 0;
-}
-#endif
-
-#if CONFIG_SPI_BITBANG //pwm_spi
-void mt_set_pwm_enable_ahb_hal(u32 bit)
-{
-	SETREG32(CK_SEL, 1 << bit);
-}
-
-void ultra_16_hal(u32 bit)
-{
-	SETREG32(PWM_ULTRA, 1 << 16);
-}
-void ultra_24_hal(u32 bit)
-{
-	SETREG32(PWM_ULTRA, 1 << 24);
-}
-
-void ultra_4_hal(u32 bit)
-{
-	SETREG32(PWM_ULTRA, 1 << 4);
-}
-
-#if 0
-void dcm_hal(u32 bit)
-{
-	CLRREG32(DCM_ENABLE, 1 << 0);
-}
-
-void dcm_cfg_hal(u32 bit)
-{
-	CLRREG32(DCM_CFG, 1 << 7);
-}
-#endif
-
-void mt_set_pwm_buf1_addr_hal (u32 pwm_no, u32 *addr)
-{
-//#if 1
-	unsigned long reg_buff1_addr;
-        reg_buff1_addr = PWM_register[pwm_no] + 4 * PWM_BUF1_BASE_ADDR;
-	OUTREG32_DMA(reg_buff1_addr, addr);	
-//#endif
-}
-
-void mt_set_pwm_buf1_size_hal( u32 pwm_no, uint16_t size)
-{
-//#if 1
-	unsigned long reg_buff1_size;
-        reg_buff1_size = PWM_register[pwm_no] + 4* PWM_BUF1_SIZE;
-        OUTREG32(reg_buff1_size, size);
-//#endif
-}
-
-void mt_set_pwm_valid_hal ( u32 pwm_no, u32 buf_valid_bit )
-{
-	unsigned long reg_valid;
-	
-	reg_valid = PWM_register[pwm_no] + 4* (PWM_VALID);
-	SETREG32 ( reg_valid, 1 << buf_valid_bit );
-}
-
-void mt_set_pwm_delay_duration_hal(u32 pwm_no, uint16_t val)
-{
-	//unsigned long reg_valid;
-	if ( pwm_no == 3 ) {
-		MASKREG32 ( PWM3_DELAY, PWM_DELAY_DURATION_MASK, val );//reg_valid = PWM3_DELAY;
-	} else if ( pwm_no == 4 ) {
-		MASKREG32 ( PWM4_DELAY, PWM_DELAY_DURATION_MASK, val );//reg_valid = PWM4_DELAY;
-	} else if ( pwm_no == 5 ) {
-		MASKREG32 ( PWM4_DELAY, PWM_DELAY_DURATION_MASK, val );//reg_valid = PWM4_DELAY;
-	}
-	//MASKREG32 ( reg_valid, PWM_DELAY_DURATION_MASK, val );
-}
-
-void mt_set_pwm_delay_clock_hal (u32 pwm_no, u32 clksrc)
-{
-	//unsigned long reg_valid;
-	if ( pwm_no == 3 ) {
-		MASKREG32 (PWM3_DELAY, PWM_DELAY_CLK_MASK, clksrc );//reg_valid = PWM3_DELAY;
-	} else if ( pwm_no == 4 ) {
-		MASKREG32 (PWM4_DELAY, PWM_DELAY_CLK_MASK, clksrc );//reg_valid = PWM4_DELAY;
-	} else if ( pwm_no == 5 ) {
-		MASKREG32 (PWM4_DELAY, PWM_DELAY_CLK_MASK, clksrc );//reg_valid = PWM4_DELAY;
-	}
-	//MASKREG32 (reg_valid, PWM_DELAY_CLK_MASK, clksrc );
-}
-
-void mt_set_pwm_seqmode_multiport_enable_hal(u32 pwm_no_sclk, u32 pwm_no_mosi)
-{
-	u32 res = 1 << PWM_ENABLE_SEQ_OFFSET;
-	res |= 1 << pwm_no_sclk;
-	res |= 1 << pwm_no_mosi;
-	//printk("\r\n[PWM_ENABLE is:%x]\n\r ", res);
-	SETREG32(PWM_ENABLE, res);
-	
 }
 #endif

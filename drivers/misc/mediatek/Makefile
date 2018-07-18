@@ -1,6 +1,8 @@
 #$(call all-subdir-src-or-makefile)
+include $(srctree)/drivers/misc/mediatek/Makefile.custom
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-subdir-ccflags-y += -Werror
+#subdir-ccflags-y += -Werror
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/hibcore
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
@@ -32,16 +34,11 @@ obj-$(CONFIG_CUSTOM_KERNEL_ALSPS) += alsps/
 obj-$(CONFIG_CUSTOM_KERNEL_ACCELEROMETER) += accelerometer/
 obj-$(CONFIG_CUSTOM_KERNEL_GYROSCOPE) += gyroscope/
 obj-$(CONFIG_CUSTOM_KERNEL_MAGNETOMETER) += magnetometer/
+obj-$(CONFIG_MTK_TINNO_HALL) += hall/
 obj-$(CONFIG_CUSTOM_KERNEL_BAROMETER) += barometer/
 obj-$(CONFIG_CUSTOM_KERNEL_HUMIDITY) += humidity/
-#Lenovo-sw weimh1 mod 2016-3-2 begin:CONFIG_CUSTOM_KERNEL_STEP_COUNTER is not y or n
-ifneq ($(CONFIG_CUSTOM_KERNEL_STEP_COUNTER),"")
-obj-y	+= step_counter/
-endif
-ifneq ($(CONFIG_CUSTOM_KERNEL_SIGNIFICANT_MOTION_SENSOR),"")
-obj-y	+= step_counter/
-endif
-#Lenovo-sw weimh1 mod 2016-3-2 end
+obj-$(CONFIG_CUSTOM_KERNEL_STEP_COUNTER)	+= step_counter/
+obj-$(CONFIG_CUSTOM_KERNEL_SIGNIFICANT_MOTION_SENSOR)	+= step_counter/
 obj-$(CONFIG_CUSTOM_KERNEL_ACTIVITY_SENSOR)	+= activity_sensor/
 obj-$(CONFIG_CUSTOM_KERNEL_PICK_UP_SENSOR)	+= pick_up_sensor/
 obj-$(CONFIG_CUSTOM_KERNEL_SHAKE_SENSOR)	+= shake_sensor/
@@ -108,7 +105,7 @@ obj-$(CONFIG_MTK_SECURITY_SW_SUPPORT) +=masp/
 obj-$(CONFIG_MEDIATEK_SOLUTION)  += sched/
 obj-y += cameraisp/src/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
-obj-$(CONFIG_MTK_LENS)      += lens/
+obj-$(CONFIG_MTK_LENS)   += lens/
 obj-$(CONFIG_MTK_LASER)     += laser/
 obj-$(CONFIG_MTK_FLASHLIGHT)	+= flashlight/src/
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met/),)
@@ -120,6 +117,9 @@ obj-$(CONFIG_MTK_CCCI_EXT)     +=  dual_ccci/
 obj-$(CONFIG_MTK_C2K_SUPPORT) += c2k_ccci/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 
+ifeq ($(wildcard $(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)/cam_cal),)
+obj-$(CONFIG_MTK_CAM_CAL)	+= cam_cal/src/
+endif
 obj-$(CONFIG_MTK_HIBERNATION) += hibcore/
 
 ifdef CONFIG_CUSTOM_KERNEL_SSW
@@ -188,5 +188,11 @@ obj-$(CONFIG_MTK_POWER_GS)      += power_gs/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/cpu_stress/),)
 obj-$(CONFIG_MTK_CPU_STRESS)	+= cpu_stress/
+endif
+
+
+#Fingerprint start
+ifeq ($(CONFIG_TINNO_FINGER_PRINT_SUPPORT),y)
+obj-y += fingerprint/
 endif
 

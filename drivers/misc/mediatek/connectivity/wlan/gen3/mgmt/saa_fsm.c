@@ -981,13 +981,6 @@ VOID saaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 
-	/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-	if (!prStaRec) {
-		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-		prStaRec = prSwRfb->prStaRec;
-	}
-	/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
-
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec)
 		return;
@@ -1098,13 +1091,6 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-	/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-
-	if (!prStaRec) {
-		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-		prStaRec = prSwRfb->prStaRec;
-	}
-	/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
 
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec) {
@@ -1191,12 +1177,6 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 			   prDeauthFrame->u2ReasonCode);
 
 	do {
-		/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-		if (!prStaRec) {
-			nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-			prStaRec = prSwRfb->prStaRec;
-		}
-		/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
 
 		/* We should have the corresponding Sta Record. */
 		if (!prStaRec)
@@ -1377,12 +1357,6 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 		prDisassocFrame->u2ReasonCode);
 
 	do {
-		/*Begin, lenovo-sw lumy1, mtk temp patch  for KE*/
-		if (!prStaRec) {
-			nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
-			prStaRec = prSwRfb->prStaRec;
-		}		
-		/*End, lenovo-sw lumy1, mtk temp patch  for KE*/
 
 		/* We should have the corresponding Sta Record. */
 		if (!prStaRec)

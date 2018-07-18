@@ -18,7 +18,6 @@ enum mode {
 	PRIO_FOUR_BIGS_MAX_FREQ,
 	PRIO_MAX_CORES,
 	PRIO_MAX_CORES_MAX_FREQ,
-	PRIO_MIGRATE_CUR_FREQ,
 	PRIO_RESET,
 	/* Define the max priority for priority limit */
 	PRIO_DEFAULT

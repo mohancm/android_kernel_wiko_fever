@@ -11,8 +11,6 @@
 /*----------------variable define-----------------*/
 unsigned int sim_mode_curr = SINGLE_TALK_MDSYS;
 
-#define LENOVO_SIM_SWITCH  /*change by lixh10 as lenovo hardware design*/
-
 struct mutex sim_switch_mutex;
 
 struct pinctrl *ssw_pinctrl = NULL;
@@ -244,15 +242,12 @@ static int sim_switch_probe(struct platform_device *dev)
 		SSW_DBG("cannot find ssw pinctrl.\n");
 		return PTR_ERR(ssw_pinctrl);
 	}
-#ifndef LENOVO_SIM_SWITCH
+
 	hot_plug_mode1 = pinctrl_lookup_state(ssw_pinctrl, "hot_plug_mode1");
-#endif 	
 	two_sims_bound_to_md1 =
 	    pinctrl_lookup_state(ssw_pinctrl, "two_sims_bound_to_md1");
 
-#ifndef LENOVO_SIM_SWITCH
 	hot_plug_mode2 = pinctrl_lookup_state(ssw_pinctrl, "hot_plug_mode2");
-#endif 
 	sim1_md3_sim2_md1 =
 	    pinctrl_lookup_state(ssw_pinctrl, "sim1_md3_sim2_md1");
 

@@ -74,6 +74,8 @@ struct mag_hw *get_cust_mag(void)
 	return &mag_cust;
 }
 
+extern struct platform_device* msensor_get_plt_dev(void);
+
 /*----------------------------------------------------------------------------*/
 static int akm09911_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id);
 static int akm09911_i2c_remove(struct i2c_client *client);
@@ -140,6 +142,7 @@ static DEFINE_MUTEX(akm09911_i2c_mutex);
 static void akm09911_power(struct mag_hw *hw, unsigned int on)
 {
 }
+
 static long AKI2C_RxData(char *rxData, int length)
 {
 	uint8_t loop_i;
@@ -2616,12 +2619,10 @@ static int akm09911_o_get_data(int *x , int *y, int *z, int *status)
 {
 	mutex_lock(&sensor_data_mutex);
 
-/*lenovo-sw caoyi1 modify orientation sensor data 20150825 begin*/
-	*x = sensor_data[13] * CONVERT_O;
-	*y = sensor_data[14] * CONVERT_O;
-	*z = sensor_data[15] * CONVERT_O;
+	*x = sensor_data[13] * CONVERT_M;
+	*y = sensor_data[14] * CONVERT_M;
+	*z = sensor_data[15] * CONVERT_M;
 	*status = sensor_data[8];
-/*lenovo-sw caoyi1 modify orientation sensor data 20150825 end*/
 
 	mutex_unlock(&sensor_data_mutex);
 	return 0;
@@ -2635,12 +2636,6 @@ static int akm09911_i2c_probe(struct i2c_client *client, const struct i2c_device
 	struct akm09911_i2c_data *data;
 	struct mag_control_path ctl = {0};
 	struct mag_data_path mag_data = {0};
-/*lenovo-sw caoyi1 add begin*/
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *pins_default;
-	struct pinctrl_state *pins_cfg;
-	struct platform_device *mag_pdev = get_mag_platformdev();
-/*lenovo-sw caoyi1 add end*/
 
 	MAGN_LOG("akm09911_i2c_probe\n");
 	data = kzalloc(sizeof(struct akm09911_i2c_data), GFP_KERNEL);
@@ -2650,6 +2645,7 @@ static int akm09911_i2c_probe(struct i2c_client *client, const struct i2c_device
 	}
 
 	data->hw = hw;
+	client->addr=data->hw->i2c_addr[0];
 	atomic_set(&data->layout, data->hw->direction);
 	atomic_set(&data->trace, 0);
 	mutex_init(&sense_data_mutex);
@@ -2661,30 +2657,24 @@ static int akm09911_i2c_probe(struct i2c_client *client, const struct i2c_device
 	i2c_set_clientdata(new_client, data);
 	this_client = new_client;
 
-/*lenovo-sw caoyi1 add for GPIO reset pin begin*/
-	pinctrl = devm_pinctrl_get(&mag_pdev->dev);
-	if (IS_ERR(pinctrl)) {
-		err = PTR_ERR(pinctrl);
-		MAGN_ERR("Cannot find mag pinctrl!\n");
-	}
-	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
-	if (IS_ERR(pins_default)) {
-		err = PTR_ERR(pins_default);
-		MAGN_ERR("Cannot find mag pinctrl default!\n");
-	}
-
-	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
-	if (IS_ERR(pins_cfg)) {
-		err = PTR_ERR(pins_cfg);
-		MAGN_ERR("Cannot find mag pinctrl pin_cfg!\n");
-
-	}
-	pinctrl_select_state(pinctrl, pins_cfg);
-	msleep(10);
-	MAGN_LOG("caoyi 888\n");
-/*lenovo-sw caoyi1 add for GPIO reset pin end*/
-
 	/* Check connection */
+	struct pinctrl *pcl;
+	struct pinctrl_state *pcl_default;
+	struct platform_device *plt_dev = msensor_get_plt_dev();
+	pcl = devm_pinctrl_get(&plt_dev->dev);
+	if (IS_ERR(pcl)) {
+		MAGN_LOG("devm_pinctrl_get fail\n");
+		return -1;
+	}
+
+	pcl_default = pinctrl_lookup_state(pcl, "default");
+	if (IS_ERR(pcl_default)) {
+		MAGN_LOG("pinctrl_lookup_state fail\n");
+		return -1;
+	}
+
+	pinctrl_select_state(pcl, pcl_default);
+	msleep(100);
 	err = AKECS_CheckDevice();
 	if (err < 0) {
 		MAG_ERR("AKM09911 akm09911_probe: check device connect error\n");
