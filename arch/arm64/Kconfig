@@ -37,6 +37,8 @@ config ARM64
 	select HAVE_ARCH_AUDITSYSCALL
 	select HAVE_ARCH_JUMP_LABEL
 	select HAVE_ARCH_KGDB
+	select HAVE_ARCH_MMAP_RND_BITS
+	select HAVE_ARCH_MMAP_RND_COMPAT_BITS if COMPAT
 	select HAVE_ARCH_SECCOMP_FILTER
 	select HAVE_ARCH_TRACEHOOK
 	select HAVE_BPF_JIT
@@ -90,8 +92,33 @@ config MMU
 config NO_IOPORT_MAP
 	def_bool y if !PCI
 
+config ARCH_MMAP_RND_BITS_MIN
+       default 14 if ARM64_64K_PAGES
+       default 18
+
+# max bits determined by the following formula:
+#  VA_BITS - PAGE_SHIFT - 3
+#  VA_BITS is always 39
+config ARCH_MMAP_RND_BITS_MAX
+       default 20 if ARM64_64K_PAGES
+       default 24
+
+config ARCH_MMAP_RND_COMPAT_BITS_MIN
+       default 11
+
+config ARCH_MMAP_RND_COMPAT_BITS_MAX
+       default 16
+
+config ILLEGAL_POINTER_VALUE
+	hex
+	default 0xdead000000000000
+
 config STACKTRACE_SUPPORT
 	def_bool y
+
+config ILLEGAL_POINTER_VALUE
+	hex
+	default 0xdead000000000000
 
 config LOCKDEP_SUPPORT
 	def_bool y
@@ -946,6 +973,22 @@ menu "CPU Power Management"
 source "drivers/cpuidle/Kconfig"
 
 source "drivers/cpufreq/Kconfig"
+
+config ARM64_ERRATUM_843419
+	bool "Cortex-A53: 843419: A load or store might access an incorrect address"
+	depends on MODULES
+	default y
+	help
+	  This option builds kernel modules using the large memory model in
+	  order to avoid the use of the ADRP instruction, which can cause
+	  a subsequent memory access to use an incorrect address on Cortex-A53
+	  parts up to r0p4.
+
+	  Note that the kernel itself must be linked with a version of ld
+	  which fixes potentially affected ADRP instructions through the
+	  use of veneers.
+
+	  If unsure, say Y.
 
 endmenu
 
