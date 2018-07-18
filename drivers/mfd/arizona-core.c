@@ -891,6 +891,8 @@ int arizona_dev_init(struct arizona *arizona)
 		regmap_write(arizona->regmap, ARIZONA_GPIO1_CTRL + i,
 			     arizona->pdata.gpio_defaults[i]);
 	}
+		break;
+	}
 
 	/* Chip default */
 	if (!arizona->pdata.clk32k_src)
@@ -988,16 +990,10 @@ int arizona_dev_init(struct arizona *arizona)
 					   arizona->pdata.spk_fmt[i]);
 	}
 
-	pm_runtime_set_active(arizona->dev);
-	pm_runtime_enable(arizona->dev);
-
 	/* Set up for interrupts */
 	ret = arizona_irq_init(arizona);
 	if (ret != 0)
 		goto err_reset;
-
-	pm_runtime_set_autosuspend_delay(arizona->dev, 100);
-	pm_runtime_use_autosuspend(arizona->dev);
 
 	arizona_request_irq(arizona, ARIZONA_IRQ_CLKGEN_ERR, "CLKGEN error",
 			    arizona_clkgen_err, arizona);
@@ -1025,14 +1021,6 @@ int arizona_dev_init(struct arizona *arizona)
 		dev_err(arizona->dev, "Failed to add subdevices: %d\n", ret);
 		goto err_irq;
 	}
-
-<<<<<<< HEAD
-#ifdef CONFIG_PM_RUNTIME
-	regulator_disable(arizona->dcvdd);
-#endif
-
-=======
->>>>>>> up/cm-14.1
 	return 0;
 
 err_irq:
